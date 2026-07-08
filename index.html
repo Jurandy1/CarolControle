@@ -85,6 +85,16 @@
         .pg-mini-btn.ok { color: #166534; border-color: #bbf7d0; }
         .pg-mini-btn.na { color: #6b7280; }
         .pg-mini-btn.pend { color: #92400e; border-color: #fde68a; }
+        .col-anexos { min-width: 90px; max-width: 120px; }
+        .anexos-wrap { display: flex; flex-wrap: wrap; gap: 3px; }
+        .anexo-pill { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; line-height: 1.3; white-space: nowrap; }
+        .anexo-link { background: #e0e7ff; color: #3730a3; }
+        .anexo-file { background: #dbeafe; color: #1d4ed8; }
+        .anexo-doc { background: #ccfbf1; color: #0f766e; }
+        .anexo-note { background: #fef3c7; color: #92400e; }
+        .save-toast { position: fixed; bottom: 20px; right: 20px; z-index: 60; padding: 12px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,.15); }
+        .save-toast.ok { background: #059669; color: #fff; }
+        .save-toast.err { background: #dc2626; color: #fff; }
         thead.data-thead { background: #f3f4f6; border-bottom: 2px solid #e5e7eb; }
         thead.data-thead th { padding: 10px 12px; font-size: 11px; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: .03em; }
         table.data-table { table-layout: auto; width: 100%; }
@@ -277,7 +287,7 @@
                             <p class="text-xs text-white/80 mt-0.5">Preencha os dados do processo nesta tela</p>
                         </div>
 
-                        <form id="edit-form" onsubmit="saveRecord(event)">
+                        <form id="edit-form" onsubmit="saveRecord(event)" novalidate>
                             <input type="hidden" id="record-id">
 
                             <div class="modal-section p-5 bg-indigo-50/60">
@@ -285,11 +295,11 @@
                                 <div class="space-y-3">
                                     <div>
                                         <label class="block text-[10px] font-semibold text-indigo-700 uppercase mb-1">Link direto do processo no SEI</label>
-                                        <input type="url" id="field-linkSei" placeholder="Cole o link copiado do SEI..." class="w-full border border-indigo-200 rounded-md px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-400 focus:outline-none">
+                                        <input type="text" id="field-linkSei" placeholder="Cole o link copiado do SEI..." class="w-full border border-indigo-200 rounded-md px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-400 focus:outline-none">
                                     </div>
                                     <div>
                                         <label class="block text-[10px] font-semibold text-indigo-700 uppercase mb-1">Link de arquivo / documento</label>
-                                        <input type="url" id="field-linkArquivo" placeholder="PDF, despacho, ofício..." class="w-full border border-indigo-200 rounded-md px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-400 focus:outline-none">
+                                        <input type="text" id="field-linkArquivo" placeholder="PDF, despacho, ofício..." class="w-full border border-indigo-200 rounded-md px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-400 focus:outline-none">
                                     </div>
                                     <div>
                                         <label class="block text-[10px] font-semibold text-indigo-700 uppercase mb-1">Observação sobre os links</label>
@@ -593,7 +603,7 @@
             'PROCESSOS CONECTA': MESES_ACOMP.slice(0, 7)
         };
 
-        const VIRTUAL_COL_LABELS = { pagamentosResumo: 'Pagamentos mensais' };
+        const VIRTUAL_COL_LABELS = { pagamentosResumo: 'Pagamentos mensais', anexos: 'Links / Docs' };
 
         const MONTH_FIELD_KEYS = new Set([
             ...MESES_PG_2025.map(m => m.key),
@@ -794,6 +804,9 @@
             if (key === 'pagamentosResumo') {
                 return renderPagamentosResumoHtml(record?.data || {}, record?.tab || activeTab);
             }
+            if (key === 'anexos') {
+                return renderAnexosHtml(record);
+            }
 
             const v = clean(val);
             if (!v || v === '*') return '<span class="text-gray-300">—</span>';
@@ -874,7 +887,7 @@
             const panel = document.getElementById('col-filters-panel');
             if (!panel) return;
             panel.classList.toggle('open', colFiltersPanelOpen);
-            panel.innerHTML = cols.filter(k => k !== 'pagamentosResumo').map(k => {
+            panel.innerHTML = cols.filter(k => !['pagamentosResumo', 'anexos'].includes(k)).map(k => {
                 const f = cfg.fields.find(x => x.key === k);
                 const label = f ? f.label : k;
                 const val = (colFilters[k] || '').replace(/"/g, '&quot;');
@@ -888,6 +901,7 @@
 
         function colCssClass(key) {
             if (key === 'pagamentosResumo') return 'col-pg';
+            if (key === 'anexos') return 'col-anexos';
             if (['descricao', 'servico', 'nome', 'docCap', 'docUnidade'].includes(key)) return 'col-desc';
             if (['situacao', 'situacaoCap', 'situacaoUnidade', 'statusLinha'].includes(key)) return 'col-sit';
             if (['contrato', 'numero', 'proc26', 'proc2025', 'proc2024', 'procSei', 'seiCap', 'seiUnidade'].includes(key)) return 'col-med';
@@ -929,6 +943,10 @@
                 const meses = getMesesForTab(r.tab);
                 if (!meses) return '';
                 return String(summarizePagamentos(r.data, meses).ok).padStart(3, '0');
+            }
+            if (key === 'anexos') {
+                const score = (r.linkSei ? 1 : 0) + (r.linkArquivo ? 1 : 0) + (r.documentos?.length || 0) + (r.anotacoes?.length || 0);
+                return String(score).padStart(3, '0');
             }
             return clean(r.data?.[key] || '').toLowerCase();
         }
@@ -1215,16 +1233,26 @@
 
         async function saveAllRecords() {
             localStorage.setItem('sei_mae_records', JSON.stringify(records));
-            if (!isCloudMode || !db) return;
+            if (!isCloudMode || !db) return true;
             try {
-                const batch = writeBatch(db);
-                const colRef = collection(db, ...recordsPath.split('/'));
-                // Simplificado: salvar documento único com todos os registros para evitar centenas de writes
                 const metaRef = doc(db, ...recordsPath.split('/'), '_all_records');
                 await setDoc(metaRef, { records, updatedAt: new Date().toISOString() });
+                return true;
             } catch (e) {
                 console.warn('Erro salvando na nuvem:', e);
+                throw e;
             }
+        }
+
+        function showSaveToast(msg, ok = true) {
+            const old = document.getElementById('save-toast');
+            if (old) old.remove();
+            const el = document.createElement('div');
+            el.id = 'save-toast';
+            el.className = 'save-toast ' + (ok ? 'ok' : 'err');
+            el.textContent = msg;
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 3500);
         }
 
         function initFirebase() {
@@ -1343,8 +1371,21 @@
             if (titleEl) titleEl.innerText = activeTab;
         }
 
+        function renderAnexosHtml(record) {
+            const parts = [];
+            if (record?.linkSei) parts.push('<span class="anexo-pill anexo-link" title="Link SEI">SEI</span>');
+            if (record?.linkArquivo) parts.push('<span class="anexo-pill anexo-file" title="Arquivo">Arq</span>');
+            const nDocs = (record?.documentos || []).length;
+            if (nDocs) parts.push(`<span class="anexo-pill anexo-doc" title="${nDocs} documento(s)">${nDocs} doc</span>`);
+            const nAnot = (record?.anotacoes || []).length;
+            if (nAnot) parts.push(`<span class="anexo-pill anexo-note" title="${nAnot} anotação(ões)">${nAnot} nota</span>`);
+            return parts.length ? `<div class="anexos-wrap">${parts.join('')}</div>` : '<span class="text-gray-300">—</span>';
+        }
+
         function getListCols(cfg) {
-            return cfg.listCols || cfg.tableCols.slice(0, 4);
+            const base = cfg.listCols || cfg.tableCols.slice(0, 4);
+            if (!base.includes('anexos')) return [...base, 'anexos'];
+            return base;
         }
 
         function showListView() {
@@ -1417,7 +1458,10 @@
                         if (e.target.closest('button')) return;
                         editRecord(r.id);
                     };
-                    tr.innerHTML = cols.map(k => `<td class="px-3 py-2.5 text-xs ${colCssClass(k)}">${formatCell(k, k === 'pagamentosResumo' ? null : r.data[k], r)}</td>`).join('') +
+                    tr.innerHTML = cols.map(k => {
+                        const virtual = k === 'pagamentosResumo' || k === 'anexos';
+                        return `<td class="px-3 py-2.5 text-xs ${colCssClass(k)}">${formatCell(k, virtual ? null : r.data[k], r)}</td>`;
+                    }).join('') +
                         `<td class="px-3 py-2.5 text-center actions-col whitespace-nowrap">
                             <button type="button" onclick="event.stopPropagation(); editRecord('${r.id}')" class="btn-editar">Editar</button>
                             <button type="button" onclick="event.stopPropagation(); deleteRecord('${r.id}')" class="btn-excluir">Excluir</button>
@@ -1456,14 +1500,42 @@
 
         window.closeEditModal = window.closeEditPage;
 
-        // Estado dos campos dinâmicos do modal
-        let modalDocumentos = [];
-        let modalAnotacoes = [];
+        // Estado dos campos dinâmicos da edição (no window para os handlers HTML)
+        window.modalDocumentos = [];
+        window.modalAnotacoes = [];
+
+        function bindEditDynamicLists() {
+            const docsEl = document.getElementById('documentos-list');
+            const anotEl = document.getElementById('anotacoes-list');
+            if (docsEl && !docsEl.dataset.bound) {
+                docsEl.dataset.bound = '1';
+                docsEl.addEventListener('input', (e) => {
+                    const el = e.target;
+                    const idx = Number(el.dataset.docIdx);
+                    const field = el.dataset.docField;
+                    if (!Number.isNaN(idx) && field && window.modalDocumentos[idx]) {
+                        window.modalDocumentos[idx][field] = el.value;
+                    }
+                });
+            }
+            if (anotEl && !anotEl.dataset.bound) {
+                anotEl.dataset.bound = '1';
+                anotEl.addEventListener('input', (e) => {
+                    const el = e.target;
+                    const idx = Number(el.dataset.anotIdx);
+                    const field = el.dataset.anotField;
+                    if (!Number.isNaN(idx) && field && window.modalAnotacoes[idx]) {
+                        window.modalAnotacoes[idx][field] = el.value;
+                    }
+                });
+            }
+        }
 
         function renderDocumentosList() {
             const container = document.getElementById('documentos-list');
             const countEl = document.getElementById('docs-count');
             if (!container) return;
+            const modalDocumentos = window.modalDocumentos;
             if (!modalDocumentos.length) {
                 container.innerHTML = '<p class="text-xs text-gray-400 italic">Nenhum documento adicionado.</p>';
                 if (countEl) countEl.innerText = '';
@@ -1479,15 +1551,15 @@
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <div>
                             <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-0.5">Nº Documento</label>
-                            <input type="text" value="${(doc.numero || '').replace(/"/g,'&quot;')}" oninput="modalDocumentos[${idx}].numero=this.value" placeholder="Ofício 123/2025" class="w-full border border-gray-200 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-teal-400 focus:outline-none">
+                            <input type="text" data-doc-idx="${idx}" data-doc-field="numero" value="${(doc.numero || '').replace(/"/g,'&quot;')}" placeholder="Ofício 123/2025" class="w-full border border-gray-200 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-teal-400 focus:outline-none">
                         </div>
                         <div>
                             <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-0.5">Link</label>
-                            <input type="url" value="${(doc.link || '').replace(/"/g,'&quot;')}" oninput="modalDocumentos[${idx}].link=this.value" placeholder="https://..." class="w-full border border-gray-200 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-teal-400 focus:outline-none">
+                            <input type="text" data-doc-idx="${idx}" data-doc-field="link" value="${(doc.link || '').replace(/"/g,'&quot;')}" placeholder="Cole o link do documento..." class="w-full border border-gray-200 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-teal-400 focus:outline-none">
                         </div>
                         <div>
                             <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-0.5">Observação</label>
-                            <input type="text" value="${(doc.obs || '').replace(/"/g,'&quot;')}" oninput="modalDocumentos[${idx}].obs=this.value" placeholder="Descrição rápida..." class="w-full border border-gray-200 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-teal-400 focus:outline-none">
+                            <input type="text" data-doc-idx="${idx}" data-doc-field="obs" value="${(doc.obs || '').replace(/"/g,'&quot;')}" placeholder="Descrição rápida..." class="w-full border border-gray-200 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-teal-400 focus:outline-none">
                         </div>
                     </div>
                 </div>
@@ -1498,6 +1570,7 @@
             const container = document.getElementById('anotacoes-list');
             const countEl = document.getElementById('anot-count');
             if (!container) return;
+            const modalAnotacoes = window.modalAnotacoes;
             if (!modalAnotacoes.length) {
                 container.innerHTML = '<p class="text-xs text-gray-400 italic">Nenhuma anotação adicionada.</p>';
                 if (countEl) countEl.innerText = '';
@@ -1513,11 +1586,11 @@
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <div>
                             <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-0.5">Data</label>
-                            <input type="date" value="${anot.data || ''}" oninput="modalAnotacoes[${idx}].data=this.value" class="w-full border border-gray-200 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-amber-400 focus:outline-none">
+                            <input type="date" data-anot-idx="${idx}" data-anot-field="data" value="${anot.data || ''}" class="w-full border border-gray-200 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-amber-400 focus:outline-none">
                         </div>
                         <div class="sm:col-span-2">
                             <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-0.5">Texto</label>
-                            <textarea rows="2" oninput="modalAnotacoes[${idx}].texto=this.value" placeholder="Descreva o andamento, decisão, lembrete..." class="w-full border border-gray-200 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-amber-400 focus:outline-none resize-none">${anot.texto || ''}</textarea>
+                            <textarea rows="2" data-anot-idx="${idx}" data-anot-field="texto" placeholder="Descreva o andamento, decisão, lembrete..." class="w-full border border-gray-200 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-amber-400 focus:outline-none resize-none">${anot.texto || ''}</textarea>
                         </div>
                     </div>
                 </div>
@@ -1525,23 +1598,23 @@
         }
 
         window.addDocumento = function() {
-            modalDocumentos.push({ numero: '', link: '', obs: '' });
+            window.modalDocumentos.push({ numero: '', link: '', obs: '' });
             renderDocumentosList();
         };
 
         window.removeDocumento = function(idx) {
-            modalDocumentos.splice(idx, 1);
+            window.modalDocumentos.splice(idx, 1);
             renderDocumentosList();
         };
 
         window.addAnotacao = function() {
             const today = new Date().toISOString().split('T')[0];
-            modalAnotacoes.push({ data: today, texto: '' });
+            window.modalAnotacoes.push({ data: today, texto: '' });
             renderAnotacoesList();
         };
 
         window.removeAnotacao = function(idx) {
-            modalAnotacoes.splice(idx, 1);
+            window.modalAnotacoes.splice(idx, 1);
             renderAnotacoesList();
         };
 
@@ -1561,8 +1634,9 @@
             document.getElementById('field-numAditivo').value = record?.numAditivo || '';
 
             // Carregar listas dinâmicas
-            modalDocumentos = (record?.documentos || []).map(d => ({ ...d }));
-            modalAnotacoes = (record?.anotacoes || []).map(a => ({ ...a }));
+            window.modalDocumentos = (record?.documentos || []).map(d => ({ ...d }));
+            window.modalAnotacoes = (record?.anotacoes || []).map(a => ({ ...a }));
+            bindEditDynamicLists();
             renderDocumentosList();
             renderAnotacoesList();
 
@@ -1605,21 +1679,28 @@
             const obsCoord       = document.getElementById('field-obsCoord')?.value.trim() || '';
             const procAdicional  = document.getElementById('field-procAdicional')?.value.trim() || '';
             const numAditivo     = document.getElementById('field-numAditivo')?.value.trim() || '';
-            const documentos     = modalDocumentos.filter(d => d.numero || d.link || d.obs);
-            const anotacoes      = modalAnotacoes.filter(a => a.texto);
+            const documentos     = window.modalDocumentos.filter(d => d.numero || d.link || d.obs);
+            const anotacoes      = window.modalAnotacoes.filter(a => a.texto);
 
             const patch = { data, linkSei, linkArquivo, linkObs, obsCoord, procAdicional, numAditivo, documentos, anotacoes, updatedAt: new Date().toISOString() };
 
-            if (id) {
-                const idx = records.findIndex(r => r.id === id);
-                if (idx !== -1) records[idx] = { ...records[idx], ...patch };
-            } else {
-                records.push({ id: newId(), tab: tabKey, ...patch });
-            }
+            try {
+                if (id) {
+                    const idx = records.findIndex(r => r.id === id);
+                    if (idx !== -1) records[idx] = { ...records[idx], ...patch };
+                } else {
+                    records.push({ id: newId(), tab: tabKey, ...patch });
+                }
 
-            await saveAllRecords();
-            closeEditPage();
-            refreshUI();
+                await saveAllRecords();
+                showSaveToast(isCloudMode ? 'Salvo na nuvem com sucesso' : 'Salvo localmente');
+                closeEditPage();
+                refreshUI();
+            } catch (err) {
+                showSaveToast('Erro ao salvar na nuvem. Dados guardados no navegador.', false);
+                closeEditPage();
+                refreshUI();
+            }
         };
 
         window.deleteRecord = function(id) {
@@ -1675,6 +1756,7 @@
         };
 
         // Inicialização: tentar carregar local; sugerir importação se vazio
+        bindEditDynamicLists();
         initFirebase();
         const localData = localStorage.getItem('sei_mae_records');
         if (localData) {
