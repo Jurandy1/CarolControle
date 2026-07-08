@@ -1,0 +1,1698 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle Carol — Monitoramento SEI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f4f5f7; }
+        .bg-brand-dark { background-color: #3730a3; }
+        .bg-brand { background-color: #4f46e5; }
+        .text-brand { color: #4f46e5; }
+        .border-brand { border-color: #4f46e5; }
+        .hover-brand:hover { background-color: #3730a3; }
+        .bg-gov-blue-dark { background-color: #3730a3; }
+        .bg-gov-blue-light { background-color: #4f46e5; }
+        .text-gov-blue { color: #4f46e5; }
+        .hover-gov-blue:hover { background-color: #3730a3; }
+        .cell-truncate { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .sei-link { color: #4f46e5; font-weight: 600; }
+        .sei-link:hover { text-decoration: underline; }
+        .btn-sei { background: #4f46e5; color: white; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+        .btn-sei:hover { background: #3730a3; }
+        /* Sidebar */
+        #sidebar { width: 220px; min-width: 220px; background: #fff; border-right: 1px solid #e5e7eb; overflow-y: auto; transition: transform .2s ease; }
+        #sidebar.collapsed { display: none; }
+        .sidebar-item { display: flex; align-items: center; justify-content: space-between; width: 100%; text-align: left; padding: 8px 12px; border-radius: 7px; font-size: 12px; font-weight: 500; color: #4b5563; cursor: pointer; border: none; background: none; transition: background .15s; }
+        .sidebar-item:hover { background: #f3f4f6; }
+        .sidebar-item.active { background: #4f46e5; color: white; font-weight: 600; }
+        .sidebar-item.active .tab-count { opacity: .7; }
+        .tab-count { font-size: 10px; color: #9ca3af; min-width: 22px; text-align: right; }
+        .sidebar-item.active .tab-count { color: #c7d2fe; }
+        /* Modal section collapse */
+        .modal-section { border-bottom: 1px solid #e5e7eb; }
+        .modal-section-header { display: flex; justify-content: space-between; align-items: center; width: 100%; text-align: left; cursor: pointer; background: none; border: none; padding: 0; }
+        /* Cabeçalhos ordenáveis */
+        .th-sort { display: inline-flex; align-items: center; justify-content: space-between; gap: 6px; background: none; border: none; cursor: pointer; font: inherit; color: inherit; text-transform: inherit; letter-spacing: inherit; padding: 0; width: 100%; text-align: left; }
+        .th-sort:hover { color: #3730a3; }
+        .sort-arrow { font-size: 9px; opacity: .45; font-weight: 700; }
+        .sort-arrow.active { opacity: 1; color: #4f46e5; }
+        .col-desc { min-width: 200px; max-width: 320px; }
+        .col-med { min-width: 120px; max-width: 180px; }
+        .col-curta { min-width: 90px; width: 110px; }
+        .col-pg { min-width: 180px; max-width: 260px; }
+        /* Cronograma de pagamentos — visão compacta na lista */
+        .pg-wrap { min-width: 170px; }
+        .pg-bar { display: flex; gap: 2px; margin-bottom: 6px; }
+        .pg-seg { flex: 1; height: 8px; border-radius: 2px; min-width: 4px; cursor: help; }
+        .seg-ok { background: #22c55e; }
+        .seg-info { background: #3b82f6; }
+        .seg-na { background: #d1d5db; }
+        .seg-pend { background: #f59e0b; }
+        .seg-vazio { background: #fff; border: 1px dashed #e5e7eb; }
+        .pg-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 4px; }
+        .pg-counts { display: flex; flex-wrap: wrap; gap: 4px; }
+        .pg-count { font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px; line-height: 1.4; }
+        .pg-count.ok { background: #dcfce7; color: #166534; }
+        .pg-count.pend { background: #fef3c7; color: #92400e; }
+        .pg-count.vazio { background: #f3f4f6; color: #6b7280; }
+        .pg-ratio { font-size: 10px; font-weight: 600; color: #9ca3af; white-space: nowrap; }
+        .pg-attention { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 2px; }
+        .pg-more { font-size: 9px; color: #9ca3af; font-weight: 600; align-self: center; }
+        .pg-pill { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; line-height: 1.3; cursor: default; white-space: nowrap; }
+        .pg-ok { background: #dcfce7; color: #166534; }
+        .pg-info { background: #dbeafe; color: #1e40af; }
+        .pg-na { background: #f3f4f6; color: #9ca3af; }
+        .pg-pend { background: #fef3c7; color: #92400e; }
+        .pg-vazio { background: #fff; border: 1px dashed #e5e7eb; color: #9ca3af; }
+        .pg-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; font-size: 10px; color: #6b7280; }
+        .pg-legend span { display: inline-flex; align-items: center; gap: 4px; }
+        .pg-edit-toolbar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+        .pg-quick-btn { font-size: 10px; font-weight: 600; padding: 4px 10px; border-radius: 6px; border: 1px solid #e5e7eb; background: #fff; color: #374151; cursor: pointer; }
+        .pg-quick-btn:hover { background: #f9fafb; border-color: #d1d5db; }
+        .pg-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .pg-table th { text-align: left; font-size: 10px; text-transform: uppercase; color: #6b7280; padding: 6px 8px; border-bottom: 1px solid #e5e7eb; }
+        .pg-table td { padding: 4px 8px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
+        .pg-table tr:hover td { background: #fafafa; }
+        .pg-table .pg-mes { font-weight: 600; color: #374151; width: 90px; white-space: nowrap; }
+        .pg-table input { height: 32px; padding: 0 8px; font-size: 12px; }
+        .pg-table .pg-mini-btns { display: flex; gap: 3px; flex-shrink: 0; }
+        .pg-mini-btn { font-size: 9px; font-weight: 700; padding: 3px 6px; border-radius: 4px; border: 1px solid #e5e7eb; background: #fff; cursor: pointer; line-height: 1; }
+        .pg-mini-btn:hover { background: #f3f4f6; }
+        .pg-mini-btn.ok { color: #166534; border-color: #bbf7d0; }
+        .pg-mini-btn.na { color: #6b7280; }
+        .pg-mini-btn.pend { color: #92400e; border-color: #fde68a; }
+        thead.data-thead { background: #f3f4f6; border-bottom: 2px solid #e5e7eb; }
+        thead.data-thead th { padding: 10px 12px; font-size: 11px; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: .03em; }
+        table.data-table { table-layout: auto; width: 100%; }
+        table.data-table td, table.data-table th { vertical-align: middle; }
+        /* Campos de formulário profissionais */
+        .field-label { display: block; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #6b7280; margin-bottom: 5px; }
+        .input-wrap { position: relative; }
+        .input-wrap .input-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: #9ca3af; pointer-events: none; }
+        .input-pro {
+            width: 100%; height: 38px; padding: 0 12px 0 36px;
+            font-size: 13px; color: #111827; background: #fff;
+            border: 1px solid #d1d5db; border-radius: 6px;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .input-pro.no-icon { padding-left: 12px; }
+        .input-pro:hover { border-color: #9ca3af; }
+        .input-pro:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,.1); }
+        .input-pro::placeholder { color: #9ca3af; }
+        .select-pro {
+            height: 38px; padding: 0 32px 0 12px; font-size: 13px; color: #111827;
+            background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E") no-repeat right 10px center / 14px;
+            border: 1px solid #d1d5db; border-radius: 6px; appearance: none; cursor: pointer;
+        }
+        .select-pro:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,.1); }
+        .btn-outline { height: 38px; padding: 0 14px; font-size: 12px; font-weight: 600; color: #374151; background: #fff; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+        .btn-outline:hover { background: #f9fafb; border-color: #9ca3af; }
+        #col-filters-panel {
+            display: none; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 12px 16px; padding: 14px 16px; background: #fafbfc; border-bottom: 1px solid #e5e7eb;
+        }
+        #col-filters-panel.open { display: grid; }
+        .filters-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #4f46e5; background: none; border: none; cursor: pointer; padding: 0; }
+        .filters-toggle:hover { color: #3730a3; }
+        /* Lista simplificada */
+        .actions-col { position: sticky; right: 0; z-index: 10; background: #fff; box-shadow: -6px 0 12px rgba(0,0,0,.06); min-width: 110px; }
+        .btn-editar { background: #4f46e5; color: #fff; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; border: none; cursor: pointer; white-space: nowrap; }
+        .btn-editar:hover { background: #3730a3; }
+        .btn-excluir { background: #fef2f2; color: #dc2626; padding: 6px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; border: 1px solid #fecaca; cursor: pointer; margin-left: 4px; }
+        .btn-excluir:hover { background: #fee2e2; }
+        tr.row-clickable { cursor: pointer; }
+        tr.row-clickable:hover { background: #f5f3ff !important; }
+        #edit-view { display: none; }
+        #edit-view.active { display: block; }
+        #list-view.hidden { display: none; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col text-gray-800">
+
+    <header class="bg-brand-dark text-white shadow-md shrink-0 z-30 relative">
+        <div class="px-4 py-3 flex justify-between items-center gap-3">
+            <div class="flex items-center gap-3">
+                <button onclick="toggleSidebar()" title="Menu lateral" class="text-white opacity-70 hover:opacity-100 transition lg:hidden p-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>
+                </button>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight leading-tight">Controle Carol</h1>
+                    <p class="text-[10px] opacity-80">Monitoramento de Processos SEI</p>
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <div id="connection-badge" class="bg-amber-500 text-white text-xs font-semibold px-3 py-1 rounded-full flex items-center space-x-1">
+                    <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+                    <span id="connection-status-text">Iniciando...</span>
+                </div>
+                <label class="bg-white text-indigo-800 text-xs font-semibold px-3 py-1.5 rounded cursor-pointer hover:bg-gray-100 transition">
+                    Importar Planilha (.xlsx)
+                    <input type="file" id="xlsx-file-input" accept=".xlsx,.xls" class="hidden" onchange="importXlsxFile(event)">
+                </label>
+                <button onclick="reimportFromDefault()" class="bg-transparent border border-white/60 hover:bg-white hover:text-indigo-800 text-xs font-semibold px-3 py-1.5 rounded transition">
+                    Recarregar Dados
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Layout principal: sidebar + conteúdo -->
+    <div class="flex flex-1 min-h-0 overflow-hidden" style="height: calc(100vh - 56px);">
+
+        <!-- SIDEBAR LATERAL -->
+        <aside id="sidebar" class="flex flex-col shrink-0 bg-white border-r border-gray-200 overflow-y-auto">
+            <div class="p-3 border-b border-gray-100 shrink-0">
+                <button onclick="openNewRecordModal()" class="w-full bg-gov-blue-light hover:bg-gov-blue-dark text-white text-xs px-3 py-2 rounded-md font-semibold transition flex items-center justify-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    Novo Registro
+                </button>
+            </div>
+            <nav id="sidebar-nav" class="flex-1 p-2 space-y-0.5 overflow-y-auto"></nav>
+            <div class="p-3 border-t border-gray-100 shrink-0">
+                <p class="text-[10px] text-gray-400 text-center" id="env-badge">Local</p>
+            </div>
+        </aside>
+
+        <!-- CONTEÚDO PRINCIPAL -->
+        <div class="flex-1 overflow-y-auto overflow-x-hidden">
+            <div class="px-5 py-5 max-w-[1100px]">
+
+                <!-- LISTA -->
+                <div id="list-view">
+
+                <div id="firebase-instruction-banner" class="hidden mb-3 p-3 bg-amber-50 border-l-4 border-amber-500 rounded-r-md">
+                    <p class="text-xs text-amber-800"><strong>Modo Local ativo.</strong> Dados salvos neste navegador. Para sincronizar na nuvem: Firebase Console → Authentication → ativar <strong>Anônimo</strong> → Firestore → criar banco.</p>
+                </div>
+                <div id="firebase-success-banner" class="hidden mb-3 p-2 bg-emerald-50 border border-emerald-200 rounded-md">
+                            <p class="text-xs text-emerald-800">Dados sincronizados.</p>
+                </div>
+
+                <!-- Dashboard -->
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                        <p class="text-[10px] font-medium text-gray-500 uppercase">Total Registros</p>
+                        <h3 class="text-2xl font-bold text-gov-blue" id="dash-total">0</h3>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                        <p class="text-[10px] font-medium text-emerald-600 uppercase">Vigentes</p>
+                        <h3 class="text-2xl font-bold text-emerald-600" id="dash-vigente">0</h3>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                        <p class="text-[10px] font-medium text-amber-600 uppercase">A Executar / Parado</p>
+                        <h3 class="text-2xl font-bold text-amber-600" id="dash-pendente">0</h3>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                        <p class="text-[10px] font-medium text-gray-500 uppercase">Executados</p>
+                        <h3 class="text-2xl font-bold text-gray-600" id="dash-executado">0</h3>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                        <p class="text-[10px] font-medium text-red-600 uppercase">Memos Pendentes</p>
+                        <h3 class="text-2xl font-bold text-red-600" id="dash-memos">0</h3>
+                    </div>
+                </div>
+
+                <!-- Cabeçalho da aba + busca e filtros -->
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+                    <div class="flex items-start justify-between gap-3 mb-3 pb-3 border-b border-gray-100">
+                        <div>
+                            <h2 id="active-tab-title" class="text-sm font-bold text-gray-800">—</h2>
+                        </div>
+                    </div>
+                    <div class="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
+                        <div class="flex-1 min-w-0">
+                            <label class="field-label" for="search-input">Busca geral</label>
+                            <div class="input-wrap">
+                                <svg class="input-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                <input type="text" id="search-input" oninput="renderTable()" placeholder="Contrato, processo, descrição..." class="input-pro">
+                            </div>
+                        </div>
+                        <div class="sm:w-44">
+                            <label class="field-label" for="situacao-filter">Situação</label>
+                            <select id="situacao-filter" onchange="renderTable()" class="select-pro w-full">
+                                <option value="">Todas</option>
+                                <option value="VIGENTE">Vigente</option>
+                                <option value="EXECUTADO">Executado</option>
+                                <option value="A EXECUTAR">A Executar</option>
+                                <option value="PARADO">Parado</option>
+                                <option value="CANCELADO">Cancelado</option>
+                                <option value="OK">OK / Executado</option>
+                                <option value="PENDENTE">Pendente</option>
+                            </select>
+                        </div>
+                        <div class="flex gap-2 sm:pb-0 pb-1">
+                            <button type="button" onclick="toggleColFiltersPanel()" class="btn-outline">Filtros por coluna</button>
+                            <button type="button" onclick="clearTableFilters()" class="btn-outline">Limpar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabela -->
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                    <div id="col-filters-panel"></div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200 text-left text-sm data-table">
+                            <thead class="data-thead" id="table-head"></thead>
+                            <tbody class="divide-y divide-gray-200" id="table-body"></tbody>
+                        </table>
+                    </div>
+                    <div class="p-3 bg-gray-50 border-t border-gray-200 flex justify-between text-xs text-gray-500" id="table-footer"></div>
+                </div>
+
+                </div><!-- /list-view -->
+
+                <!-- PÁGINA DE EDIÇÃO (substitui popup) -->
+                <div id="edit-view">
+                    <button type="button" onclick="closeEditPage()" class="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-indigo-700 mb-4 font-medium">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                        Voltar para a lista
+                    </button>
+
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="bg-brand text-white px-5 py-4">
+                            <h3 class="font-bold text-base" id="modal-title">Editar Registro</h3>
+                            <p class="text-xs text-white/80 mt-0.5">Preencha os dados do processo nesta tela</p>
+                        </div>
+
+                        <form id="edit-form" onsubmit="saveRecord(event)">
+                            <input type="hidden" id="record-id">
+
+                            <div class="modal-section p-5 bg-indigo-50/60">
+                                <p class="text-xs font-bold text-indigo-900 uppercase tracking-wide mb-3">Links do Processo SEI</p>
+                                <div class="space-y-3">
+                                    <div>
+                                        <label class="block text-[10px] font-semibold text-indigo-700 uppercase mb-1">Link direto do processo no SEI</label>
+                                        <input type="url" id="field-linkSei" placeholder="Cole o link copiado do SEI..." class="w-full border border-indigo-200 rounded-md px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-400 focus:outline-none">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-semibold text-indigo-700 uppercase mb-1">Link de arquivo / documento</label>
+                                        <input type="url" id="field-linkArquivo" placeholder="PDF, despacho, ofício..." class="w-full border border-indigo-200 rounded-md px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-400 focus:outline-none">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-semibold text-indigo-700 uppercase mb-1">Observação sobre os links</label>
+                                        <textarea id="field-linkObs" rows="2" class="w-full border border-indigo-200 rounded-md px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-400 focus:outline-none resize-none"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="modal-section p-5">
+                                <p class="text-xs font-bold text-gray-700 uppercase tracking-wide mb-3">Dados do registro</p>
+                                <div id="form-fields" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+                            </div>
+
+                            <div id="pagamentos-mensais-section" class="modal-section p-5 bg-slate-50 hidden">
+                                <p class="text-xs font-bold text-slate-800 uppercase tracking-wide mb-1">Cronograma de pagamentos mensais</p>
+                                <p class="text-[11px] text-slate-500 mb-3">Marque OK, pendente, responsável ou se não se aplica ao mês.</p>
+                                <div class="pg-legend">
+                                    <span><span class="pg-pill pg-ok">OK</span> Pago</span>
+                                    <span><span class="pg-pill pg-info">Nom</span> Responsável</span>
+                                    <span><span class="pg-pill pg-na">N/A</span> Não necessário</span>
+                                    <span><span class="pg-pill pg-pend">!</span> Pendente</span>
+                                </div>
+                                <datalist id="pg-sugestoes">
+                                    <option value="OK"></option>
+                                    <option value="NÃO É NECESSÁRIO"></option>
+                                    <option value="PENDENTE"></option>
+                                </datalist>
+                                <div class="pg-edit-toolbar">
+                                    <button type="button" class="pg-quick-btn" onclick="fillAllMonths('OK')">Marcar todos OK</button>
+                                    <button type="button" class="pg-quick-btn" onclick="fillAllMonths('NÃO É NECESSÁRIO')">Marcar todos N/A</button>
+                                    <button type="button" class="pg-quick-btn" onclick="clearAllMonths()">Limpar meses</button>
+                                </div>
+                                <div id="pagamentos-mensais-grid"></div>
+                            </div>
+
+                            <div class="modal-section p-5 bg-purple-50/40">
+                                <p class="text-xs font-bold text-purple-900 uppercase tracking-wide mb-3">Processos adicionais e aditivos</p>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-[10px] font-semibold text-purple-700 uppercase mb-1">Nº Processo Adicional</label>
+                                        <input type="text" id="field-procAdicional" class="w-full border border-purple-200 rounded-md px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-purple-400 focus:outline-none">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-semibold text-purple-700 uppercase mb-1">Nº Aditivo</label>
+                                        <input type="text" id="field-numAditivo" class="w-full border border-purple-200 rounded-md px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-purple-400 focus:outline-none">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="modal-section p-5 bg-teal-50/40">
+                                <p class="text-xs font-bold text-teal-900 uppercase tracking-wide mb-3">
+                                    Documentos <span id="docs-count" class="text-teal-600 font-normal normal-case"></span>
+                                </p>
+                                <div id="documentos-list" class="space-y-2 mb-3"></div>
+                                <button type="button" onclick="addDocumento()" class="text-xs text-teal-700 border border-teal-300 bg-white hover:bg-teal-50 px-3 py-1.5 rounded-md font-semibold">+ Adicionar documento</button>
+                            </div>
+
+                            <div class="modal-section p-5 bg-amber-50/40">
+                                <p class="text-xs font-bold text-amber-900 uppercase tracking-wide mb-3">
+                                    Anotações com data <span id="anot-count" class="text-amber-600 font-normal normal-case"></span>
+                                </p>
+                                <div id="anotacoes-list" class="space-y-2 mb-3"></div>
+                                <button type="button" onclick="addAnotacao()" class="text-xs text-amber-700 border border-amber-300 bg-white hover:bg-amber-50 px-3 py-1.5 rounded-md font-semibold">+ Nova anotação</button>
+                            </div>
+
+                            <div class="p-5">
+                                <label class="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">Observação geral</label>
+                                <textarea id="field-obsCoord" rows="3" class="w-full border border-amber-200 bg-amber-50/60 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-amber-400 focus:outline-none resize-none"></textarea>
+                            </div>
+
+                            <div class="px-5 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-2">
+                                <button type="button" onclick="closeEditPage()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm px-5 py-2 rounded-md font-semibold">Cancelar</button>
+                                <button type="submit" class="bg-brand hover:bg-brand-dark text-white text-sm px-6 py-2 rounded-md font-semibold">Salvar registro</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal removido — edição na página dedicada acima -->
+    <div id="edit-modal" class="hidden"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, query, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAY9Xy04_cz_1x7t54EzHa70LIOHGVA8dM",
+            authDomain: "carolcontrole.firebaseapp.com",
+            projectId: "carolcontrole",
+            storageBucket: "carolcontrole.firebasestorage.app",
+            messagingSenderId: "591231038569",
+            appId: "1:591231038569:web:a9d1cd4a780fe78031def8"
+        };
+
+        const SEI_PATTERN = /\d{5}\.\d{6,7}\/\d{4}(-\d{2})?|\d{5}\.\d\.\d{6}\/\d{4}|\d{5}\.\d\.\d{5}\/\d{4}/g;
+
+        // Configuração de cada aba da planilha N. PROCESSO MAE.xlsx
+        const SHEET_CONFIG = {
+            "PCA 2026": {
+                desc: "Plano de Contratações Anual 2026 — contratos, processos SEI e aditivos",
+                headerRow: 0,
+                fields: [
+                    { key: "contrato", label: "Nº Contrato", type: "text" },
+                    { key: "descricao", label: "Descrição", type: "text", fullWidth: true },
+                    { key: "dataInicio", label: "Data Início", type: "text" },
+                    { key: "dataFim", label: "Data Fim", type: "text" },
+                    { key: "situacao", label: "Situação", type: "select", options: ["VIGENTE", "EXECUTADO", "A EXECUTAR", "PARADO", "CANCELADO", "EXCUTADO"] },
+                    { key: "modelo", label: "Modelo", type: "text" },
+                    { key: "proc26", label: "Nº Proc 2026", type: "text" },
+                    { key: "proc2025", label: "Nº Proc 2025", type: "text" },
+                    { key: "proc2024", label: "Nº Proc 2024", type: "text" },
+                    { key: "repactuacao", label: "Repactuação", type: "text" },
+                    { key: "aditivo", label: "Nº Aditivo", type: "text" },
+                    { key: "obsAditivos", label: "Obs. Aditivos", type: "textarea" },
+                    { key: "requerimentoPag", label: "Requerimento de Pag.", type: "text" },
+                    { key: "saldoContrato", label: "Saldo de Contrato", type: "text" }
+                ],
+                tableCols: ["contrato", "descricao", "situacao", "proc26", "proc2025", "proc2024", "dataFim"],
+                listCols: ["contrato", "descricao", "situacao", "proc26"]
+            },
+            "PCA 2025": {
+                desc: "Plano de Contratações Anual 2025 — contratos com valores",
+                headerRow: 0,
+                fields: [
+                    { key: "contrato", label: "Nº Contrato", type: "text" },
+                    { key: "descricao", label: "Descrição", type: "text", fullWidth: true },
+                    { key: "dataInicio", label: "Data Início", type: "text" },
+                    { key: "dataFim", label: "Data Fim", type: "text" },
+                    { key: "situacao", label: "Situação", type: "select", options: ["VIGENTE", "EXECUTADO", "A EXECUTAR", "PARADO", "CANCELADO"] },
+                    { key: "modelo", label: "Modelo", type: "text" },
+                    { key: "proc26", label: "Nº Proc 2026", type: "text" },
+                    { key: "proc2025", label: "Nº Proc 2025", type: "text" },
+                    { key: "proc2024", label: "Nº Proc 2024", type: "text" },
+                    { key: "repactuacao", label: "Repactuação", type: "text" },
+                    { key: "aditivo", label: "Nº Aditivo", type: "text" },
+                    { key: "obsAditivos", label: "Obs. Aditivos", type: "textarea" },
+                    { key: "vlrTotal", label: "Vlr Total Contrato", type: "text" },
+                    { key: "saldoContrato", label: "Saldo de Contrato", type: "text" }
+                ],
+                tableCols: ["contrato", "descricao", "situacao", "proc2025", "vlrTotal", "saldoContrato", "dataFim"],
+                listCols: ["contrato", "descricao", "situacao", "proc2025"]
+            },
+            "2025": {
+                desc: "Acompanhamento mensal de pagamentos 2025",
+                headerRow: 1,
+                fields: [
+                    { key: "contrato", label: "Nº Contrato", type: "text" },
+                    { key: "descricao", label: "Descrição / Contrato", type: "text", fullWidth: true },
+                    { key: "dataFim", label: "Data Fim", type: "text" },
+                    { key: "situacao", label: "Situação", type: "select", options: ["VIGENTE", "EXECUTADO", "PARADO", "CANCELADO"] },
+                    { key: "modelo", label: "Modelo", type: "text" },
+                    { key: "proc2025", label: "Nº Proc 2025", type: "text" },
+                    { key: "proc2024", label: "Nº Proc 2024", type: "text" },
+                    { key: "dez", label: "Dezembro", type: "text" },
+                    { key: "jan", label: "Janeiro PG.", type: "text" },
+                    { key: "fev", label: "Fevereiro PG.", type: "text" },
+                    { key: "mar", label: "Março PG.", type: "text" },
+                    { key: "abr", label: "Abril PG.", type: "text" },
+                    { key: "mai", label: "Maio PG.", type: "text" },
+                    { key: "jun", label: "Junho PG.", type: "text" },
+                    { key: "jul", label: "Julho PG.", type: "text" },
+                    { key: "ago", label: "Agosto PG.", type: "text" },
+                    { key: "set", label: "Setembro PG.", type: "text" },
+                    { key: "out", label: "Outubro PG.", type: "text" },
+                    { key: "nov", label: "Novembro PG.", type: "text" }
+                ],
+                tableCols: ["contrato", "descricao", "situacao", "proc2025", "jan", "fev", "mar", "abr"],
+                listCols: ["contrato", "descricao", "situacao", "pagamentosResumo"]
+            },
+            "MEMOS CAP": {
+                desc: "Memorandos diversos CAP e memorandos enviados pelas unidades",
+                headerRow: 1,
+                fields: [
+                    { key: "docCap", label: "Documento (CAP)", type: "text", fullWidth: true },
+                    { key: "seiCap", label: "Nº SEI (CAP)", type: "text" },
+                    { key: "situacaoCap", label: "Situação (CAP)", type: "text" },
+                    { key: "docUnidade", label: "Documento (Unidade)", type: "text", fullWidth: true },
+                    { key: "seiUnidade", label: "Nº SEI (Unidade)", type: "text" },
+                    { key: "situacaoUnidade", label: "Situação (Unidade)", type: "text" }
+                ],
+                tableCols: ["docCap", "seiCap", "situacaoCap", "docUnidade", "seiUnidade", "situacaoUnidade"],
+                listCols: ["docCap", "situacaoCap", "seiCap"]
+            },
+            "STARTGOV": {
+                desc: "Referência StartGov",
+                headerRow: 0,
+                fields: [
+                    { key: "numero", label: "#", type: "text" },
+                    { key: "descricao", label: "Descrição", type: "text", fullWidth: true },
+                    { key: "valor", label: "Valor", type: "text" },
+                    { key: "ano", label: "Ano", type: "text" }
+                ],
+                tableCols: ["numero", "descricao", "valor", "ano"],
+                listCols: ["descricao", "valor", "ano"]
+            },
+            "FISCAIS DE CONTRATO": {
+                desc: "Fiscais responsáveis por cada tipo de contrato/serviço",
+                headerRow: 1,
+                fields: [
+                    { key: "servico", label: "Serviço / Contrato", type: "text", fullWidth: true },
+                    { key: "fiscal", label: "Fiscal Responsável", type: "text" },
+                    { key: "suplente", label: "Suplente", type: "text" }
+                ],
+                tableCols: ["servico", "fiscal", "suplente"],
+                listCols: ["servico", "fiscal", "suplente"]
+            },
+            "SEI 2024": {
+                desc: "Processos de despesa SEMCAS-CAP 2024 com acompanhamento mensal",
+                headerRow: 2,
+                fields: [
+                    { key: "statusLinha", label: "Status da Linha", type: "text" },
+                    { key: "nome", label: "Nome / Processo", type: "text", fullWidth: true },
+                    { key: "numDoc", label: "Nº 1º Doc", type: "text" },
+                    { key: "procSei", label: "Proc. SEI", type: "text" },
+                    { key: "procConecta", label: "Proc. Conecta", type: "text", fullWidth: true },
+                    { key: "fev", label: "Fevereiro", type: "text" },
+                    { key: "mar", label: "Março", type: "text" },
+                    { key: "abr", label: "Abril", type: "text" },
+                    { key: "mai", label: "Maio", type: "text" },
+                    { key: "jun", label: "Junho", type: "text" },
+                    { key: "jul", label: "Julho", type: "text" },
+                    { key: "ago", label: "Agosto", type: "text" },
+                    { key: "set", label: "Setembro", type: "text" },
+                    { key: "out", label: "Outubro", type: "text" }
+                ],
+                tableCols: ["nome", "numDoc", "procSei", "procConecta", "fev", "mar", "abr"],
+                listCols: ["nome", "procSei", "pagamentosResumo"]
+            },
+            "PROCESSOS CONECTA": {
+                desc: "Processos Conecta — despesa SEMCAS-CAP",
+                headerRow: 2,
+                fields: [
+                    { key: "nome", label: "Nome / Processo", type: "text", fullWidth: true },
+                    { key: "numDoc", label: "Nº 1º Doc", type: "text" },
+                    { key: "procSei", label: "Proc. SEI", type: "text" },
+                    { key: "procConecta", label: "Proc. Conecta", type: "text", fullWidth: true },
+                    { key: "fev", label: "Fevereiro", type: "text" },
+                    { key: "mar", label: "Março", type: "text" },
+                    { key: "abr", label: "Abril", type: "text" },
+                    { key: "mai", label: "Maio", type: "text" },
+                    { key: "jun", label: "Junho", type: "text" },
+                    { key: "jul", label: "Julho", type: "text" },
+                    { key: "ago", label: "Agosto", type: "text" }
+                ],
+                tableCols: ["nome", "numDoc", "procSei", "procConecta", "fev", "mar", "abr"],
+                listCols: ["nome", "procSei", "pagamentosResumo"]
+            },
+            "MEMOS DIVERSOS": {
+                desc: "Documentos abertos no Conecta — férias, acessos, materiais",
+                headerRow: 0,
+                fields: [
+                    { key: "descricao", label: "Documento / Assunto", type: "text", fullWidth: true },
+                    { key: "proc1", label: "Nº Processo (Conecta)", type: "text" },
+                    { key: "proc2", label: "Nº Processo (Benedito)", type: "text" },
+                    { key: "proc3", label: "Nº Processo (Guilherme)", type: "text" },
+                    { key: "proc4", label: "Nº Processo (extra 1)", type: "text" },
+                    { key: "proc5", label: "Nº Processo (extra 2)", type: "text" }
+                ],
+                tableCols: ["descricao", "proc1", "proc2", "proc3", "proc4", "proc5"],
+                listCols: ["descricao", "proc1", "proc2"]
+            }
+        };
+
+        const TAB_NAMES = Object.keys(SHEET_CONFIG);
+
+        const MESES_PG_2025 = [
+            { key: 'dez', short: 'Dez', label: 'Dezembro' },
+            { key: 'jan', short: 'Jan', label: 'Janeiro' },
+            { key: 'fev', short: 'Fev', label: 'Fevereiro' },
+            { key: 'mar', short: 'Mar', label: 'Março' },
+            { key: 'abr', short: 'Abr', label: 'Abril' },
+            { key: 'mai', short: 'Mai', label: 'Maio' },
+            { key: 'jun', short: 'Jun', label: 'Junho' },
+            { key: 'jul', short: 'Jul', label: 'Julho' },
+            { key: 'ago', short: 'Ago', label: 'Agosto' },
+            { key: 'set', short: 'Set', label: 'Setembro' },
+            { key: 'out', short: 'Out', label: 'Outubro' },
+            { key: 'nov', short: 'Nov', label: 'Novembro' }
+        ];
+
+        const MESES_ACOMP = [
+            { key: 'fev', short: 'Fev', label: 'Fevereiro' },
+            { key: 'mar', short: 'Mar', label: 'Março' },
+            { key: 'abr', short: 'Abr', label: 'Abril' },
+            { key: 'mai', short: 'Mai', label: 'Maio' },
+            { key: 'jun', short: 'Jun', label: 'Junho' },
+            { key: 'jul', short: 'Jul', label: 'Julho' },
+            { key: 'ago', short: 'Ago', label: 'Agosto' },
+            { key: 'set', short: 'Set', label: 'Setembro' },
+            { key: 'out', short: 'Out', label: 'Outubro' }
+        ];
+
+        const TAB_MESES_MAP = {
+            '2025': MESES_PG_2025,
+            'SEI 2024': MESES_ACOMP,
+            'PROCESSOS CONECTA': MESES_ACOMP.slice(0, 7)
+        };
+
+        const VIRTUAL_COL_LABELS = { pagamentosResumo: 'Pagamentos mensais' };
+
+        const MONTH_FIELD_KEYS = new Set([
+            ...MESES_PG_2025.map(m => m.key),
+            ...MESES_ACOMP.map(m => m.key)
+        ]);
+
+        function getMesesForTab(tab) {
+            return TAB_MESES_MAP[tab] || null;
+        }
+
+        function classifyMonthPayment(val) {
+            const v = clean(val).toUpperCase();
+            if (!v || v === '-' || v === '*') return 'vazio';
+            if ((v.includes('NÃO') && v.includes('NECESS')) || v === 'NA' || v === 'N/A') return 'na';
+            if (v.includes('PEND') || v.includes('PARADO')) return 'pendente';
+            if (v === 'OK' || v.includes('PAG') || v.includes('EXECUT')) return 'ok';
+            return 'info';
+        }
+
+        function summarizePagamentos(data, meses) {
+            let ok = 0, pend = 0, na = 0, vazio = 0;
+            meses.forEach(m => {
+                const st = classifyMonthPayment(data?.[m.key]);
+                if (st === 'ok' || st === 'info') ok++;
+                else if (st === 'pendente') pend++;
+                else if (st === 'na') na++;
+                else vazio++;
+            });
+            return { ok, pend, na, vazio, total: meses.length };
+        }
+
+        function renderPagamentosResumoHtml(data, tab) {
+            const meses = getMesesForTab(tab);
+            if (!meses) return '<span class="text-gray-300">—</span>';
+            const stats = summarizePagamentos(data, meses);
+
+            const segments = meses.map(m => {
+                const raw = clean(data?.[m.key]);
+                const st = classifyMonthPayment(raw);
+                const cls = { ok: 'seg-ok', na: 'seg-na', pendente: 'seg-pend', vazio: 'seg-vazio', info: 'seg-info' }[st];
+                const tip = `${m.label}: ${raw || 'sem registro'}`;
+                return `<span class="pg-seg ${cls}" title="${tip.replace(/"/g, '&quot;')}"></span>`;
+            }).join('');
+
+            const counts = [
+                stats.ok ? `<span class="pg-count ok">${stats.ok} ok</span>` : '',
+                stats.pend ? `<span class="pg-count pend">${stats.pend} pend.</span>` : '',
+                stats.vazio ? `<span class="pg-count vazio">${stats.vazio} vazio</span>` : ''
+            ].filter(Boolean).join('');
+
+            const attention = meses.filter(m => {
+                const st = classifyMonthPayment(data?.[m.key]);
+                return st === 'pendente' || st === 'vazio';
+            });
+
+            let alertHtml = '';
+            if (attention.length) {
+                const show = attention.slice(0, 3);
+                const chips = show.map(m => {
+                    const raw = clean(data[m.key]);
+                    const st = classifyMonthPayment(raw);
+                    const cls = st === 'pendente' ? 'pg-pend' : 'pg-vazio';
+                    const val = raw ? (raw.length > 10 ? raw.slice(0, 10) + '…' : raw) : '—';
+                    return `<span class="pg-pill ${cls}" title="${m.label}: ${raw || 'sem registro'}">${m.short} ${val}</span>`;
+                }).join('');
+                const more = attention.length > 3 ? `<span class="pg-more">+${attention.length - 3}</span>` : '';
+                alertHtml = `<div class="pg-attention">${chips}${more}</div>`;
+            }
+
+            return `<div class="pg-wrap" title="Passe o mouse na barra para ver cada mês">
+                <div class="pg-bar">${segments}</div>
+                <div class="pg-row"><div class="pg-counts">${counts || '<span class="pg-count vazio">sem registro</span>'}</div><span class="pg-ratio">${stats.ok}/${stats.total}</span></div>
+                ${alertHtml}
+            </div>`;
+        }
+
+        function setMonthValue(key, val) {
+            const el = document.getElementById('field-' + key);
+            if (el) el.value = val;
+        }
+
+        window.setMonthValue = setMonthValue;
+        window.fillAllMonths = function(val) {
+            const meses = getMesesForTab(activeTab);
+            if (!meses) return;
+            meses.forEach(m => setMonthValue(m.key, val));
+        };
+
+        window.clearAllMonths = function() {
+            fillAllMonths('');
+        };
+
+        function renderPagamentosMensaisSection(tabKey, data) {
+            const meses = getMesesForTab(tabKey);
+            const section = document.getElementById('pagamentos-mensais-section');
+            const grid = document.getElementById('pagamentos-mensais-grid');
+            if (!section || !grid) return;
+            if (!meses) {
+                section.classList.add('hidden');
+                grid.innerHTML = '';
+                return;
+            }
+            section.classList.remove('hidden');
+            const rows = meses.map(m => {
+                const val = data ? (data[m.key] || '') : '';
+                return `<tr>
+                    <td class="pg-mes">${m.label}</td>
+                    <td><input type="text" id="field-${m.key}" list="pg-sugestoes" value="${val.replace(/"/g, '&quot;')}"
+                        class="input-pro no-icon w-full" placeholder="OK, responsável, N/A..."></td>
+                    <td class="pg-mini-btns">
+                        <button type="button" class="pg-mini-btn ok" onclick="setMonthValue('${m.key}','OK')" title="OK">OK</button>
+                        <button type="button" class="pg-mini-btn na" onclick="setMonthValue('${m.key}','NÃO É NECESSÁRIO')" title="N/A">N/A</button>
+                        <button type="button" class="pg-mini-btn pend" onclick="setMonthValue('${m.key}','PENDENTE')" title="Pendente">!</button>
+                    </td>
+                </tr>`;
+            }).join('');
+            grid.innerHTML = `<table class="pg-table"><thead><tr><th>Mês</th><th>Registro</th><th>Atalho</th></tr></thead><tbody>${rows}</tbody></table>`;
+        }
+
+        let activeTab = TAB_NAMES[0];
+        let records = [];
+        let isCloudMode = false;
+        let app, db, auth;
+        const appId = 'carolcontrole';
+        const recordsPath = `artifacts/${appId}/public/data/records`;
+
+        // --- Utilitários ---
+        function clean(v) {
+            if (v == null) return '';
+            // Datas vindas do XLSX como objeto Date → formatar DD/MM/AAAA
+            if (v instanceof Date) {
+                const d = String(v.getDate()).padStart(2,'0');
+                const m = String(v.getMonth()+1).padStart(2,'0');
+                const a = v.getFullYear();
+                return `${d}/${m}/${a}`;
+            }
+            // Números que eram células monetárias → manter como string com R$
+            // (o formatCell já cuida da exibição; aqui só garantimos que não perde casas decimais)
+            if (typeof v === 'number') {
+                // Se for inteiro, não tem decimal
+                return String(v);
+            }
+            return String(v).replace(/\u00A0/g, ' ').trim();
+        }
+
+        function extractSeiNumbers(text) {
+            if (!text) return [];
+            const matches = text.match(SEI_PATTERN);
+            return matches ? [...new Set(matches)] : [];
+        }
+
+        function getRecordSeiLink(r) {
+            return r.linkSei || '';
+        }
+
+        function seiLinkHtml(num, url) {
+            if (!url) return num || '';
+            const label = num || 'Abrir SEI';
+            return `<a href="${url}" target="_blank" rel="noopener" class="sei-link" title="Abrir no SEI">${label}</a>`;
+        }
+
+        function linkButtonHtml(url, label) {
+            if (!url) return '<span class="text-gray-300">—</span>';
+            return `<a href="${url}" target="_blank" rel="noopener" class="btn-sei">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                ${label}
+            </a>`;
+        }
+
+        // Converte valor numérico do XLSX para formato monetário brasileiro
+        function formatMoedaBR(v) {
+            const num = parseFloat(String(v).replace(/[^\d.,-]/g, '').replace(',', '.'));
+            if (isNaN(num)) return v;
+            return 'R$ ' + num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        // Converte data que veio em formato americano (M/D/YY ou MM/DD/YYYY) para DD/MM/AAAA
+        function formatDataBR(v) {
+            // Já está no formato correto (DD/MM/AAAA ou DD/MM/AAAA)
+            if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(v)) {
+                const [a, b, c] = v.split('/');
+                // Se o primeiro número > 12, já é dia/mês/ano (brasileiro)
+                if (parseInt(a) > 12) return v;
+                // Se parece MM/DD/YYYY (americano), converte
+                return `${String(b).padStart(2,'0')}/${String(a).padStart(2,'0')}/${c}`;
+            }
+            // Formato curto MM/DD/YY
+            if (/^\d{1,2}\/\d{1,2}\/\d{2}$/.test(v)) {
+                const [a, b, c] = v.split('/');
+                const ano = parseInt(c) + (parseInt(c) < 50 ? 2000 : 1900);
+                if (parseInt(a) > 12) return `${String(a).padStart(2,'0')}/${String(b).padStart(2,'0')}/${ano}`;
+                return `${String(b).padStart(2,'0')}/${String(a).padStart(2,'0')}/${ano}`;
+            }
+            return v;
+        }
+
+        function formatCell(key, val, record) {
+            if (key === 'pagamentosResumo') {
+                return renderPagamentosResumoHtml(record?.data || {}, record?.tab || activeTab);
+            }
+
+            const v = clean(val);
+            if (!v || v === '*') return '<span class="text-gray-300">—</span>';
+
+            // Números de processo SEI — com ou sem link
+            const seis = extractSeiNumbers(v);
+            if (seis.length && (key.includes('proc') || key.includes('sei') || key.includes('Sei') || key === 'seiCap' || key === 'seiUnidade')) {
+                const url = record?.linkSei || '';
+                if (url) return seis.map(n => seiLinkHtml(n, url)).join('<br>');
+                return seis.join('<br>');
+            }
+
+            // Situação — badges coloridos
+            if (key === 'situacao' || key === 'situacaoCap' || key === 'situacaoUnidade') {
+                let cls = 'bg-gray-100 text-gray-700';
+                const u = v.toUpperCase();
+                if (u.includes('VIGENTE')) cls = 'bg-emerald-100 text-emerald-800';
+                else if (u.includes('EXECUT') || u === 'OK') cls = 'bg-blue-100 text-blue-800';
+                else if (u.includes('PARADO') || u.includes('PENDENT')) cls = 'bg-red-100 text-red-800';
+                else if (u.includes('A EXECUTAR') || u.includes('CANCEL')) cls = 'bg-amber-100 text-amber-800';
+                return `<span class="px-2 py-0.5 text-[10px] font-semibold rounded-full ${cls}">${v}</span>`;
+            }
+
+            // Valores monetários — formatar como R$ brasileiro
+            if (key === 'vlrTotal' || key === 'saldoContrato' || key === 'valor') {
+                const formatted = formatMoedaBR(v);
+                return `<span class="font-medium text-gray-700">${formatted}</span>`;
+            }
+
+            // Datas — garantir formato DD/MM/AAAA
+            if (key === 'dataFim' || key === 'dataInicio') {
+                return `<span>${formatDataBR(v)}</span>`;
+            }
+
+            const short = v.length > 80 ? v.substring(0, 80) + '…' : v;
+            return `<span class="cell-truncate block" title="${v.replace(/"/g, '&quot;')}">${short}</span>`;
+        }
+
+        function normalizeRecord(r) {
+            let linkSei = r.linkSei || '';
+            if (linkSei.includes('acao=protocolo_pesquisar')) linkSei = '';
+            return {
+                ...r,
+                linkSei,
+                linkArquivo: r.linkArquivo || '',
+                linkObs: r.linkObs || '',
+                obsCoord: r.obsCoord || '',
+                procAdicional: r.procAdicional || '',
+                numAditivo: r.numAditivo || '',
+                documentos: r.documentos || [],
+                anotacoes: r.anotacoes || [],
+            };
+        }
+
+        function recordSearchText(r) {
+            const docs = (r.documentos || []).map(d => [d.numero, d.obs].join(' ')).join(' ');
+            const anots = (r.anotacoes || []).map(a => a.texto).join(' ');
+            return Object.values(r.data || {}).join(' ') + ' ' + (r.obsCoord || '') + ' ' + (r.linkObs || '') + ' ' + (r.linkSei || '') + ' ' + (r.linkArquivo || '') + ' ' + (r.procAdicional || '') + ' ' + (r.numAditivo || '') + ' ' + docs + ' ' + anots;
+        }
+
+        let sortCol = '';
+        let sortDir = 'desc';
+        let colFilters = {};
+        let colFiltersPanelOpen = false;
+
+        function refreshColFiltersPanel() {
+            const cfg = SHEET_CONFIG[activeTab];
+            if (!cfg) return;
+            renderColFiltersPanel(getListCols(cfg), cfg);
+        }
+
+        window.toggleColFiltersPanel = function() {
+            colFiltersPanelOpen = !colFiltersPanelOpen;
+            refreshColFiltersPanel();
+        };
+
+        function renderColFiltersPanel(cols, cfg) {
+            const panel = document.getElementById('col-filters-panel');
+            if (!panel) return;
+            panel.classList.toggle('open', colFiltersPanelOpen);
+            panel.innerHTML = cols.filter(k => k !== 'pagamentosResumo').map(k => {
+                const f = cfg.fields.find(x => x.key === k);
+                const label = f ? f.label : k;
+                const val = (colFilters[k] || '').replace(/"/g, '&quot;');
+                return `<div>
+                    <label class="field-label">${label}</label>
+                    <input type="text" class="input-pro no-icon" placeholder="Filtrar ${label.toLowerCase()}..."
+                        value="${val}" oninput="setColFilter('${k}', this.value)">
+                </div>`;
+            }).join('');
+        }
+
+        function colCssClass(key) {
+            if (key === 'pagamentosResumo') return 'col-pg';
+            if (['descricao', 'servico', 'nome', 'docCap', 'docUnidade'].includes(key)) return 'col-desc';
+            if (['situacao', 'situacaoCap', 'situacaoUnidade', 'statusLinha'].includes(key)) return 'col-sit';
+            if (['contrato', 'numero', 'proc26', 'proc2025', 'proc2024', 'procSei', 'seiCap', 'seiUnidade'].includes(key)) return 'col-med';
+            return 'col-curta';
+        }
+
+        window.sortByColumn = function(colKey) {
+            if (sortCol === colKey) {
+                sortDir = sortDir === 'desc' ? 'asc' : 'desc';
+            } else {
+                sortCol = colKey;
+                sortDir = 'desc';
+            }
+            renderTable();
+        };
+
+        window.setColFilter = function(colKey, value) {
+            colFilters[colKey] = value;
+            if (value && value.trim()) {
+                colFiltersPanelOpen = true;
+                document.getElementById('col-filters-panel')?.classList.add('open');
+            }
+            renderTable();
+        };
+
+        window.clearTableFilters = function() {
+            colFilters = {};
+            document.getElementById('search-input').value = '';
+            document.getElementById('situacao-filter').value = '';
+            sortCol = '';
+            sortDir = 'desc';
+            colFiltersPanelOpen = false;
+            refreshColFiltersPanel();
+            renderTable();
+        };
+
+        function getCellSortValue(r, key) {
+            if (key === 'pagamentosResumo') {
+                const meses = getMesesForTab(r.tab);
+                if (!meses) return '';
+                return String(summarizePagamentos(r.data, meses).ok).padStart(3, '0');
+            }
+            return clean(r.data?.[key] || '').toLowerCase();
+        }
+
+        function applySort(list) {
+            if (!sortCol) {
+                return sortDir === 'desc' ? [...list].reverse() : [...list];
+            }
+            return [...list].sort((a, b) => {
+                const cmp = getCellSortValue(a, sortCol).localeCompare(getCellSortValue(b, sortCol), 'pt-BR', { numeric: true, sensitivity: 'base' });
+                return sortDir === 'desc' ? -cmp : cmp;
+            });
+        }
+
+        function isEditViewOpen() {
+            return document.getElementById('edit-view').classList.contains('active');
+        }
+
+        function switchTab(tab) {
+            showListView();
+            activeTab = tab;
+            colFilters = {};
+            sortCol = '';
+            sortDir = 'desc';
+            colFiltersPanelOpen = false;
+            renderTabs();
+            refreshColFiltersPanel();
+            renderTable();
+        }
+
+        window.toggleSidebar = function() {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+        };
+
+        window.toggleSection = function(id) {
+            const el = document.getElementById(id);
+            const icon = document.getElementById(id + '-icon');
+            if (!el || !icon) return;
+            const hidden = el.classList.toggle('hidden');
+            icon.innerText = hidden ? '▼' : '▲';
+        };
+
+        function newId() {
+            return 'rec_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        }
+
+        // Palavras que indicam início de uma nova seção (não são registros de processo)
+        const SECAO_MARKERS = ['RELATORIO', 'RELATÓRIO', 'PROCESSOS DESPESA', 'PROCESSOS |'];
+        function isSectionBreak(v) {
+            const u = v.toUpperCase();
+            return SECAO_MARKERS.some(m => u.includes(m));
+        }
+
+        // --- Parsers por aba (importação XLSX) ---
+        function parseSheet(sheetName, rows) {
+            const cfg = SHEET_CONFIG[sheetName];
+            if (!cfg || !rows || rows.length <= cfg.headerRow) return [];
+
+            const result = [];
+            const startRow = cfg.headerRow + 1;
+
+            // NOTA IMPORTANTE: SheetJS descarta linhas/colunas totalmente vazias no início.
+            // Todos os índices abaixo são baseados no que XLSX.sheet_to_json({header:1}) retorna.
+            //
+            // ── PCA 2026 ──────────────────────────────────────────────────────
+            // headerRow = 0 (cabeçalhos aparecem na primeira linha após SheetJS)
+            // Colunas: [0]Nº Contrato [1]Descrição [2]Data Início [3]Data Fim [4]Situação
+            //          [5]Modelo [6]Nº Proc 26 [7]Nº Proc 2025 [8]Nº P.2024 [9]Repactuação
+            //          [10]Nº Aditivo [11]obs-Aditivos [12]requerimento de pag [13]Saldo de contrato
+            if (sheetName === "PCA 2026") {
+                for (let i = startRow; i < rows.length; i++) {
+                    const r = rows[i];
+                    const desc = clean(r[1]);
+                    if (!desc && !clean(r[0])) continue;
+                    result.push({ tab: sheetName, data: {
+                        contrato: clean(r[0]),    descricao: desc,
+                        dataInicio: clean(r[2]),  dataFim: clean(r[3]),
+                        situacao: clean(r[4]),    modelo: clean(r[5]),
+                        proc26: clean(r[6]),      proc2025: clean(r[7]),
+                        proc2024: clean(r[8]),    repactuacao: clean(r[9]),
+                        aditivo: clean(r[10]),    obsAditivos: clean(r[11]),
+                        requerimentoPag: clean(r[12]), saldoContrato: clean(r[13])
+                    }});
+                }
+
+            // ── PCA 2025 ──────────────────────────────────────────────────────
+            // headerRow = 0
+            // Colunas idênticas à PCA 2026, exceto [12]Vlr Total Contrato [13]Saldo
+            } else if (sheetName === "PCA 2025") {
+                for (let i = startRow; i < rows.length; i++) {
+                    const r = rows[i];
+                    const desc = clean(r[1]);
+                    if (!desc && !clean(r[0])) continue;
+                    result.push({ tab: sheetName, data: {
+                        contrato: clean(r[0]),    descricao: desc,
+                        dataInicio: clean(r[2]),  dataFim: clean(r[3]),
+                        situacao: clean(r[4]),    modelo: clean(r[5]),
+                        proc26: clean(r[6]),      proc2025: clean(r[7]),
+                        proc2024: clean(r[8]),    repactuacao: clean(r[9]),
+                        aditivo: clean(r[10]),    obsAditivos: clean(r[11]),
+                        vlrTotal: clean(r[12]),   saldoContrato: clean(r[13])
+                    }});
+                }
+
+            // ── 2025 (Acompanhamento Mensal) ──────────────────────────────────
+            // headerRow = 1 (SheetJS mantém a linha 0 vazia porque foi definida no !ref da aba)
+            // Colunas: [0]Nº(contrato) [1]CONTRATO(descrição) [2]Data Fim [3]Situação
+            // [4]Modelo [5]Nº Proc 2025 [6]Nº Proc 2024 [7]Dezembro [8]Janeiro PG ... [18]Novembro PG
+            } else if (sheetName === "2025") {
+                for (let i = startRow; i < rows.length; i++) {
+                    const r = rows[i];
+                    if (!clean(r[0]) && !clean(r[1])) continue;
+                    result.push({ tab: sheetName, data: {
+                        contrato: clean(r[0]),    descricao: clean(r[1]),
+                        dataFim: clean(r[2]),     situacao: clean(r[3]),
+                        modelo: clean(r[4]),
+                        proc2025: clean(r[5]),    proc2024: clean(r[6]),
+                        dez: clean(r[7]),
+                        jan: clean(r[8]),         fev: clean(r[9]),
+                        mar: clean(r[10]),        abr: clean(r[11]),
+                        mai: clean(r[12]),        jun: clean(r[13]),
+                        jul: clean(r[14]),        ago: clean(r[15]),
+                        set: clean(r[16]),        out: clean(r[17]),
+                        nov: clean(r[18])
+                    }});
+                }
+
+            // ── MEMOS CAP ─────────────────────────────────────────────────────
+            // headerRow = 1 (linha 0 tem títulos "MEMORANDO DIVERSOS - CAP" / "ENVIADOS PELAS UNIDADES")
+            // Colunas: [0]DOCUMENTO(CAP) [1]Nº SEI(CAP) [2]SITUAÇÃO(CAP)
+            //          [3]vazia [4]DOCUMENTO(Unidade) [5]Nº SEI(Unidade) [6]SITUAÇÃO(Unidade)
+            } else if (sheetName === "MEMOS CAP") {
+                for (let i = startRow; i < rows.length; i++) {
+                    const r = rows[i];
+                    const docCap  = clean(r[0]);
+                    const docUnid = clean(r[4]);
+                    if (!docCap && !docUnid) continue;
+                    result.push({ tab: sheetName, data: {
+                        docCap,              seiCap: clean(r[1]),
+                        situacaoCap: clean(r[2]),
+                        docUnidade: docUnid, seiUnidade: clean(r[5]),
+                        situacaoUnidade: clean(r[6])
+                    }});
+                }
+
+            // ── STARTGOV ──────────────────────────────────────────────────────
+            // headerRow = 0
+            // Colunas: [0]# [1]Descrição [2]Valor [3]Ano
+            } else if (sheetName === "STARTGOV") {
+                for (let i = startRow; i < rows.length; i++) {
+                    const r = rows[i];
+                    if (!clean(r[0]) && !clean(r[1])) continue;
+                    result.push({ tab: sheetName, data: {
+                        numero: clean(r[0]), descricao: clean(r[1]),
+                        valor: clean(r[2]), ano: clean(r[3])
+                    }});
+                }
+
+            // ── FISCAIS DE CONTRATO ───────────────────────────────────────────
+            // headerRow = 1 (linha 0 vazia; linha 1 tem cabeçalhos "" | FISCAL | SUPLENTE)
+            // Colunas: [0]Serviço [1]Fiscal [2]Suplente
+            // Células mescladas no Excel deixam fiscal vazio nas linhas abaixo — propagar valor
+            } else if (sheetName === "FISCAIS DE CONTRATO") {
+                let lastFiscal = '';
+                for (let i = startRow; i < rows.length; i++) {
+                    const r = rows[i];
+                    const serv = clean(r[0]);
+                    if (!serv || serv.toUpperCase() === 'FISCAL') continue;
+                    let fiscal = clean(r[1]);
+                    if (fiscal) lastFiscal = fiscal;
+                    else if (lastFiscal) fiscal = lastFiscal;
+                    result.push({ tab: sheetName, data: {
+                        servico: serv,
+                        fiscal,
+                        suplente: clean(r[2])
+                    }});
+                }
+
+            // ── SEI 2024 ──────────────────────────────────────────────────────
+            // headerRow = 2 (linhas 0-1 são título/vazia; linha 2 tem cabeçalhos)
+            // Colunas: [0]Status [1]Nome [2]Nº 1 Doc [3]Proc.SEI [4]Proc.Conecta
+            //          [5]Fev [6]Mar [7]Abr [8]Mai [9]Jun [10]Jul [11]Ago [12]Set [13]Out
+            } else if (sheetName === "SEI 2024") {
+                for (let i = startRow; i < rows.length; i++) {
+                    const r = rows[i];
+                    const nome = clean(r[1]);
+                    if (!nome) continue;
+                    if (isSectionBreak(nome)) break;
+                    result.push({ tab: sheetName, data: {
+                        statusLinha: clean(r[0]),
+                        nome,
+                        numDoc:      clean(r[2]),
+                        procSei:     clean(r[3]),
+                        procConecta: clean(r[4]),
+                        fev: clean(r[5]),  mar: clean(r[6]),
+                        abr: clean(r[7]),  mai: clean(r[8]),
+                        jun: clean(r[9]),  jul: clean(r[10]),
+                        ago: clean(r[11]), set: clean(r[12]),
+                        out: clean(r[13])
+                    }});
+                }
+
+            // ── PROCESSOS CONECTA ─────────────────────────────────────────────
+            // headerRow = 2 (linhas 0-1 título/vazia; linha 2 cabeçalhos)
+            // Colunas: [0]Nome [1]Nº 1 Doc [2]Proc.SEI [3]Proc.Conecta
+            //          [4]Fev [5]Mar [6]Abr [7]Mai [8]Jun [9]Jul [10]Ago
+            // Após ~30 linhas de dados vem a seção "RELATORIOS DE PAGAMENTOS" — interrompemos
+            } else if (sheetName === "PROCESSOS CONECTA") {
+                for (let i = startRow; i < rows.length; i++) {
+                    const r = rows[i];
+                    const nome = clean(r[0]);
+                    if (!nome) continue;
+                    if (isSectionBreak(nome)) break;
+                    result.push({ tab: sheetName, data: {
+                        nome,
+                        numDoc:      clean(r[1]),
+                        procSei:     clean(r[2]),
+                        procConecta: clean(r[3]),
+                        fev: clean(r[4]),  mar: clean(r[5]),
+                        abr: clean(r[6]),  mai: clean(r[7]),
+                        jun: clean(r[8]),  jul: clean(r[9]),
+                        ago: clean(r[10])
+                    }});
+                }
+
+            // ── MEMOS DIVERSOS ────────────────────────────────────────────────
+            // headerRow = 0 (a única linha de cabeçalho tem "DOCUMENTOS ABERTOS-CONECTA | BENEDITO | GUILHERME")
+            // Colunas: [0]Documento/Assunto [1]Proc(Conecta) [2]Proc(Benedito) [3]Proc(Guilherme) [4][5]extras
+            } else if (sheetName === "MEMOS DIVERSOS") {
+                for (let i = startRow; i < rows.length; i++) {
+                    const r = rows[i];
+                    const desc = clean(r[0]);
+                    if (!desc) continue;
+                    result.push({ tab: sheetName, data: {
+                        descricao: desc,
+                        proc1: clean(r[1]),
+                        proc2: clean(r[2]),
+                        proc3: clean(r[3]),
+                        proc4: clean(r[4]),
+                        proc5: clean(r[5])
+                    }});
+                }
+            }
+
+            return result.map(item => ({
+                id: newId(),
+                tab: item.tab,
+                data: item.data,
+                linkSei: '',
+                linkArquivo: '',
+                linkObs: '',
+                obsCoord: '',
+                procAdicional: '',
+                numAditivo: '',
+                documentos: [],
+                anotacoes: [],
+                updatedAt: new Date().toISOString()
+            }));
+        }
+
+        function parseWorkbook(workbook) {
+            const all = [];
+            for (const sheetName of workbook.SheetNames) {
+                if (!SHEET_CONFIG[sheetName]) continue;
+                const ws = workbook.Sheets[sheetName];
+                // raw: true → preserva datas como objeto Date e números como number (evita formatação americana automática)
+                const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
+                all.push(...parseSheet(sheetName, rows));
+            }
+            return all;
+        }
+
+        // --- Firebase / Local ---
+        function enableLocalMode(reason) {
+            isCloudMode = false;
+            document.getElementById('connection-badge').className = "bg-amber-600 text-white text-xs font-semibold px-3 py-1 rounded-full flex items-center space-x-1";
+            document.getElementById('connection-status-text').innerText = "Modo Local";
+            document.getElementById('env-badge').innerText = "Dados no navegador";
+            document.getElementById('firebase-instruction-banner').classList.remove('hidden');
+            const stored = localStorage.getItem('sei_mae_records');
+            if (stored) records = JSON.parse(stored);
+            refreshUI();
+        }
+
+        async function saveAllRecords() {
+            localStorage.setItem('sei_mae_records', JSON.stringify(records));
+            if (!isCloudMode || !db) return;
+            try {
+                const batch = writeBatch(db);
+                const colRef = collection(db, ...recordsPath.split('/'));
+                // Simplificado: salvar documento único com todos os registros para evitar centenas de writes
+                const metaRef = doc(db, ...recordsPath.split('/'), '_all_records');
+                await setDoc(metaRef, { records, updatedAt: new Date().toISOString() });
+            } catch (e) {
+                console.warn('Erro salvando na nuvem:', e);
+            }
+        }
+
+        function initFirebase() {
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                signInAnonymously(auth).catch(() => enableLocalMode('auth failed'));
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        isCloudMode = true;
+                        document.getElementById('connection-badge').className = "bg-emerald-600 text-white text-xs font-semibold px-3 py-1 rounded-full flex items-center space-x-1";
+                        document.getElementById('connection-status-text').innerText = "Nuvem OK";
+                        document.getElementById('firebase-success-banner').classList.remove('hidden');
+                        document.getElementById('firebase-instruction-banner').classList.add('hidden');
+                        listenCloud();
+                    }
+                });
+            } catch (e) {
+                enableLocalMode(e.message);
+            }
+            setTimeout(() => {
+                if (!isCloudMode && document.getElementById('connection-status-text').innerText === 'Iniciando...') {
+                    enableLocalMode('timeout');
+                }
+            }, 4000);
+        }
+
+        function listenCloud() {
+            const metaRef = doc(db, ...recordsPath.split('/'), '_all_records');
+            onSnapshot(metaRef, (snap) => {
+                if (snap.exists() && snap.data().records) {
+                    records = snap.data().records.map(normalizeRecord);
+                    localStorage.setItem('sei_mae_records', JSON.stringify(records));
+                    refreshUI();
+                } else if (records.length === 0) {
+                    const local = localStorage.getItem('sei_mae_records');
+                    if (local) { records = JSON.parse(local); refreshUI(); }
+                }
+            }, () => enableLocalMode('firestore error'));
+        }
+
+        // --- UI ---
+        const FISCAIS_ORDEM = [
+            'SERVFAZ', 'PORTARIA', 'DEDETIZAÇÃO', 'IGAS- LIMPEZA', 'AGUA E GAS',
+            'EXPEDIENTE E LIMPEZA', 'MOBILIA', 'GENEROS', 'CESTA BASICA', 'FRALDA E LUVA',
+            'ENXOVAL', 'QUENTINHAS', 'MEGA ON', 'MANUTENÇAO ELEVADOR', 'EXTINTOR', 'R&P'
+        ];
+
+        function fiscaisSortIndex(servico) {
+            const s = clean(servico).toUpperCase();
+            const idx = FISCAIS_ORDEM.findIndex(o => o.toUpperCase() === s);
+            return idx === -1 ? 999 : idx;
+        }
+
+        function repairFiscaisContrato() {
+            const fiscais = records.filter(r => r.tab === 'FISCAIS DE CONTRATO');
+            if (!fiscais.length) return false;
+            fiscais.sort((a, b) => fiscaisSortIndex(a.data?.servico) - fiscaisSortIndex(b.data?.servico));
+            let lastFiscal = '';
+            let changed = false;
+            for (const r of fiscais) {
+                const fiscal = clean(r.data?.fiscal);
+                if (fiscal) {
+                    lastFiscal = fiscal;
+                } else if (lastFiscal && r.data) {
+                    r.data.fiscal = lastFiscal;
+                    changed = true;
+                }
+            }
+            return changed;
+        }
+
+        function refreshUI() {
+            if (repairFiscaisContrato()) saveAllRecords();
+            updateDashboard();
+            renderTabs();
+            renderTable();
+        }
+
+        function updateDashboard() {
+            const dataRecords = records.filter(r => r.tab !== 'FISCAIS DE CONTRATO' && r.tab !== 'STARTGOV');
+            document.getElementById('dash-total').innerText = dataRecords.length;
+
+            let vigente = 0, pendente = 0, executado = 0, memos = 0;
+            records.forEach(r => {
+                const sit = (r.data.situacao || r.data.situacaoCap || r.data.situacaoUnidade || r.data.statusLinha || '').toUpperCase();
+                if (sit.includes('VIGENTE')) vigente++;
+                if (sit.includes('A EXECUTAR') || sit.includes('PARADO') || sit.includes('PENDENT')) pendente++;
+                if (sit.includes('EXECUT') || sit === 'OK') executado++;
+                if (r.tab === 'MEMOS CAP' || r.tab === 'MEMOS DIVERSOS') {
+                    const s = (r.data.situacaoCap || r.data.situacaoUnidade || '').toUpperCase();
+                    if (s && !s.includes('EXECUT') && s !== 'OK') memos++;
+                }
+            });
+            document.getElementById('dash-vigente').innerText = vigente;
+            document.getElementById('dash-pendente').innerText = pendente;
+            document.getElementById('dash-executado').innerText = executado;
+            document.getElementById('dash-memos').innerText = memos;
+        }
+
+        function renderTabs() {
+            const nav = document.getElementById('sidebar-nav');
+            if (!nav) return;
+            nav.innerHTML = '';
+            TAB_NAMES.forEach(tab => {
+                const count = records.filter(r => r.tab === tab).length;
+                const btn = document.createElement('button');
+                const isActive = tab === activeTab;
+                btn.className = 'sidebar-item' + (isActive ? ' active' : '');
+                btn.innerHTML = `<span class="truncate leading-tight">${tab}</span><span class="tab-count shrink-0">${count}</span>`;
+                btn.onclick = () => switchTab(tab);
+                nav.appendChild(btn);
+            });
+            const titleEl = document.getElementById('active-tab-title');
+            if (titleEl) titleEl.innerText = activeTab;
+        }
+
+        function getListCols(cfg) {
+            return cfg.listCols || cfg.tableCols.slice(0, 4);
+        }
+
+        function showListView() {
+            document.getElementById('list-view').classList.remove('hidden');
+            document.getElementById('edit-view').classList.remove('active');
+            window.scrollTo(0, 0);
+        }
+
+        function showEditView() {
+            document.getElementById('list-view').classList.add('hidden');
+            document.getElementById('edit-view').classList.add('active');
+            window.scrollTo(0, 0);
+        }
+
+        function renderTable() {
+            const cfg = SHEET_CONFIG[activeTab];
+            const cols = getListCols(cfg);
+            const thead = document.getElementById('table-head');
+            const tbody = document.getElementById('table-body');
+            const search = document.getElementById('search-input').value.toLowerCase();
+            const sitFilter = document.getElementById('situacao-filter').value.toUpperCase();
+
+            let filtered = records.filter(r => r.tab === activeTab);
+            if (search) filtered = filtered.filter(r => recordSearchText(r).toLowerCase().includes(search));
+            if (sitFilter) {
+                filtered = filtered.filter(r => {
+                    const sit = (r.data.situacao || r.data.situacaoCap || r.data.situacaoUnidade || r.data.statusLinha || '').toUpperCase();
+                    return sit.includes(sitFilter);
+                });
+            }
+            Object.entries(colFilters).forEach(([key, val]) => {
+                if (!val || !val.trim()) return;
+                const q = val.trim().toLowerCase();
+                filtered = filtered.filter(r => getCellSortValue(r, key).includes(q));
+            });
+            filtered = applySort(filtered);
+
+            const sortArrow = (key) => {
+                if (sortCol !== key) return '<span class="sort-arrow">↕</span>';
+                return sortDir === 'desc'
+                    ? '<span class="sort-arrow active">▼</span>'
+                    : '<span class="sort-arrow active">▲</span>';
+            };
+
+            thead.innerHTML =
+                '<tr>' +
+                cols.map(k => {
+                    const f = cfg.fields.find(x => x.key === k);
+                    const label = VIRTUAL_COL_LABELS[k] || (f ? f.label : k);
+                    return `<th class="${colCssClass(k)}">
+                        <button type="button" class="th-sort" onclick="sortByColumn('${k}')" title="Ordenar ${label}">
+                            <span>${label}</span>
+                            ${sortArrow(k)}
+                        </button>
+                    </th>`;
+                }).join('') +
+                '<th class="text-center actions-col">Ação</th></tr>';
+
+            tbody.innerHTML = '';
+            const colSpan = cols.length + 1;
+            if (!filtered.length) {
+                tbody.innerHTML = `<tr><td colspan="${colSpan}" class="px-6 py-12 text-center text-gray-400">
+                    Nenhum registro nesta aba. Use <strong>Importar Planilha</strong> ou <strong>Novo Registro</strong>.
+                </td></tr>`;
+            } else {
+                filtered.forEach(r => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-gray-50/80 row-clickable';
+                    tr.onclick = (e) => {
+                        if (e.target.closest('button')) return;
+                        editRecord(r.id);
+                    };
+                    tr.innerHTML = cols.map(k => `<td class="px-3 py-2.5 text-xs ${colCssClass(k)}">${formatCell(k, k === 'pagamentosResumo' ? null : r.data[k], r)}</td>`).join('') +
+                        `<td class="px-3 py-2.5 text-center actions-col whitespace-nowrap">
+                            <button type="button" onclick="event.stopPropagation(); editRecord('${r.id}')" class="btn-editar">Editar</button>
+                            <button type="button" onclick="event.stopPropagation(); deleteRecord('${r.id}')" class="btn-excluir">Excluir</button>
+                        </td>`;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            document.getElementById('table-footer').innerHTML =
+                `<span>Exibindo <strong>${filtered.length}</strong> registro(s) · Ordenação padrão: <strong>descendente</strong> (clique no cabeçalho)</span>
+                 <span class="italic">${isCloudMode ? 'Nuvem' : 'Local'}</span>`;
+        }
+
+        // --- Página de edição (substitui modal) ---
+        window.openNewRecordModal = function() {
+            document.getElementById('record-id').value = '';
+            document.getElementById('modal-title').innerText = `Novo registro — ${activeTab}`;
+            buildFormFields(null);
+            showEditView();
+        };
+
+        window.editRecord = function(id) {
+            const r = records.find(x => x.id === id);
+            if (!r) return;
+            activeTab = r.tab;
+            document.getElementById('record-id').value = id;
+            const titulo = r.data.descricao || r.data.contrato || r.data.nome || r.data.docCap || r.data.servico || 'Registro';
+            document.getElementById('modal-title').innerText = `Editar — ${titulo.substring(0, 60)}${titulo.length > 60 ? '…' : ''}`;
+            buildFormFields(r);
+            showEditView();
+        };
+
+        window.closeEditPage = function() {
+            showListView();
+        };
+
+        window.closeEditModal = window.closeEditPage;
+
+        // Estado dos campos dinâmicos do modal
+        let modalDocumentos = [];
+        let modalAnotacoes = [];
+
+        function renderDocumentosList() {
+            const container = document.getElementById('documentos-list');
+            const countEl = document.getElementById('docs-count');
+            if (!container) return;
+            if (!modalDocumentos.length) {
+                container.innerHTML = '<p class="text-xs text-gray-400 italic">Nenhum documento adicionado.</p>';
+                if (countEl) countEl.innerText = '';
+                return;
+            }
+            if (countEl) countEl.innerText = `(${modalDocumentos.length})`;
+            container.innerHTML = modalDocumentos.map((doc, idx) => `
+                <div class="border border-teal-200 rounded-lg p-3 bg-white">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[10px] font-bold text-teal-700 uppercase">Documento ${idx + 1}</span>
+                        <button type="button" onclick="removeDocumento(${idx})" class="text-red-400 hover:text-red-600 text-xs font-semibold">✕ Remover</button>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div>
+                            <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-0.5">Nº Documento</label>
+                            <input type="text" value="${(doc.numero || '').replace(/"/g,'&quot;')}" oninput="modalDocumentos[${idx}].numero=this.value" placeholder="Ofício 123/2025" class="w-full border border-gray-200 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-teal-400 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-0.5">Link</label>
+                            <input type="url" value="${(doc.link || '').replace(/"/g,'&quot;')}" oninput="modalDocumentos[${idx}].link=this.value" placeholder="https://..." class="w-full border border-gray-200 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-teal-400 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-0.5">Observação</label>
+                            <input type="text" value="${(doc.obs || '').replace(/"/g,'&quot;')}" oninput="modalDocumentos[${idx}].obs=this.value" placeholder="Descrição rápida..." class="w-full border border-gray-200 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-teal-400 focus:outline-none">
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderAnotacoesList() {
+            const container = document.getElementById('anotacoes-list');
+            const countEl = document.getElementById('anot-count');
+            if (!container) return;
+            if (!modalAnotacoes.length) {
+                container.innerHTML = '<p class="text-xs text-gray-400 italic">Nenhuma anotação adicionada.</p>';
+                if (countEl) countEl.innerText = '';
+                return;
+            }
+            if (countEl) countEl.innerText = `(${modalAnotacoes.length})`;
+            container.innerHTML = modalAnotacoes.map((anot, idx) => `
+                <div class="border border-amber-200 rounded-lg p-3 bg-white">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[10px] font-bold text-amber-700 uppercase">Anotação ${idx + 1}</span>
+                        <button type="button" onclick="removeAnotacao(${idx})" class="text-red-400 hover:text-red-600 text-xs font-semibold">✕ Remover</button>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div>
+                            <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-0.5">Data</label>
+                            <input type="date" value="${anot.data || ''}" oninput="modalAnotacoes[${idx}].data=this.value" class="w-full border border-gray-200 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-amber-400 focus:outline-none">
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-0.5">Texto</label>
+                            <textarea rows="2" oninput="modalAnotacoes[${idx}].texto=this.value" placeholder="Descreva o andamento, decisão, lembrete..." class="w-full border border-gray-200 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-amber-400 focus:outline-none resize-none">${anot.texto || ''}</textarea>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        window.addDocumento = function() {
+            modalDocumentos.push({ numero: '', link: '', obs: '' });
+            renderDocumentosList();
+        };
+
+        window.removeDocumento = function(idx) {
+            modalDocumentos.splice(idx, 1);
+            renderDocumentosList();
+        };
+
+        window.addAnotacao = function() {
+            const today = new Date().toISOString().split('T')[0];
+            modalAnotacoes.push({ data: today, texto: '' });
+            renderAnotacoesList();
+        };
+
+        window.removeAnotacao = function(idx) {
+            modalAnotacoes.splice(idx, 1);
+            renderAnotacoesList();
+        };
+
+        function buildFormFields(record) {
+            const tabKey = record?.tab || activeTab;
+            const cfg = SHEET_CONFIG[tabKey];
+            const container = document.getElementById('form-fields');
+            const data = record?.data || null;
+            container.innerHTML = '';
+
+            // Preencher campos fixos das seções HTML
+            document.getElementById('field-linkSei').value = record?.linkSei || '';
+            document.getElementById('field-linkArquivo').value = record?.linkArquivo || '';
+            document.getElementById('field-linkObs').value = record?.linkObs || '';
+            document.getElementById('field-obsCoord').value = record?.obsCoord || '';
+            document.getElementById('field-procAdicional').value = record?.procAdicional || '';
+            document.getElementById('field-numAditivo').value = record?.numAditivo || '';
+
+            // Carregar listas dinâmicas
+            modalDocumentos = (record?.documentos || []).map(d => ({ ...d }));
+            modalAnotacoes = (record?.anotacoes || []).map(a => ({ ...a }));
+            renderDocumentosList();
+            renderAnotacoesList();
+
+            // Campos dinâmicos da aba (meses ficam no cronograma)
+            cfg.fields.forEach(f => {
+                if (MONTH_FIELD_KEYS.has(f.key)) return;
+                const wrap = document.createElement('div');
+                wrap.className = f.fullWidth ? 'sm:col-span-2' : '';
+                const val = data ? (data[f.key] || '') : '';
+                let input = '';
+                if (f.type === 'textarea') {
+                    input = `<textarea id="field-${f.key}" rows="2" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-300 focus:outline-none resize-none">${val}</textarea>`;
+                } else if (f.type === 'select') {
+                    input = `<select id="field-${f.key}" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-300 focus:outline-none">` +
+                        (f.options || []).map(o => `<option value="${o}" ${val === o ? 'selected' : ''}>${o || '(vazio)'}</option>`).join('') +
+                        `</select>`;
+                } else {
+                    input = `<input type="text" id="field-${f.key}" value="${val.replace(/"/g, '&quot;')}" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-300 focus:outline-none">`;
+                }
+                wrap.innerHTML = `<label class="block text-[10px] font-semibold text-gray-600 uppercase mb-1">${f.label}</label>${input}`;
+                container.appendChild(wrap);
+            });
+            renderPagamentosMensaisSection(tabKey, data);
+        }
+
+        window.saveRecord = async function(e) {
+            e.preventDefault();
+            const id = document.getElementById('record-id').value;
+            const tabKey = id ? (records.find(r => r.id === id)?.tab || activeTab) : activeTab;
+            const cfg = SHEET_CONFIG[tabKey];
+            const data = {};
+            cfg.fields.forEach(f => {
+                const el = document.getElementById('field-' + f.key);
+                if (el) data[f.key] = el.value.trim();
+            });
+
+            const linkSei        = document.getElementById('field-linkSei')?.value.trim() || '';
+            const linkArquivo    = document.getElementById('field-linkArquivo')?.value.trim() || '';
+            const linkObs        = document.getElementById('field-linkObs')?.value.trim() || '';
+            const obsCoord       = document.getElementById('field-obsCoord')?.value.trim() || '';
+            const procAdicional  = document.getElementById('field-procAdicional')?.value.trim() || '';
+            const numAditivo     = document.getElementById('field-numAditivo')?.value.trim() || '';
+            const documentos     = modalDocumentos.filter(d => d.numero || d.link || d.obs);
+            const anotacoes      = modalAnotacoes.filter(a => a.texto);
+
+            const patch = { data, linkSei, linkArquivo, linkObs, obsCoord, procAdicional, numAditivo, documentos, anotacoes, updatedAt: new Date().toISOString() };
+
+            if (id) {
+                const idx = records.findIndex(r => r.id === id);
+                if (idx !== -1) records[idx] = { ...records[idx], ...patch };
+            } else {
+                records.push({ id: newId(), tab: tabKey, ...patch });
+            }
+
+            await saveAllRecords();
+            closeEditPage();
+            refreshUI();
+        };
+
+        window.deleteRecord = function(id) {
+            const r = records.find(x => x.id === id);
+            if (!r || !confirm(`Excluir este registro de "${activeTab}"?`)) return;
+            records = records.filter(x => x.id !== id);
+            saveAllRecords();
+            refreshUI();
+        };
+
+        // --- Importação XLSX ---
+        window.importXlsxFile = async function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            try {
+                const buf = await file.arrayBuffer();
+                const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+                const imported = parseWorkbook(wb);
+                if (!imported.length) {
+                    alert('Nenhum dado reconhecido. Verifique se é o arquivo N. PROCESSO MAE.xlsx.');
+                    return;
+                }
+                if (records.length) {
+                    const choice = confirm(
+                        `Encontrados ${imported.length} registros na planilha.\n\n` +
+                        `Dados atuais: ${records.length} registros.\n\n` +
+                        `OK = Substituir tudo pela planilha\n` +
+                        `Cancelar = Mesclar (manter existentes + adicionar novos)`
+                    );
+                    if (choice) {
+                        records = imported;
+                    } else {
+                        const existingKeys = new Set(records.map(r => r.tab + '|' + JSON.stringify(r.data)));
+                        imported.forEach(r => {
+                            const key = r.tab + '|' + JSON.stringify(r.data);
+                            if (!existingKeys.has(key)) records.push(r);
+                        });
+                    }
+                } else {
+                    records = imported;
+                }
+                await saveAllRecords();
+                refreshUI();
+                alert(`Importação concluída: ${imported.length} registros de ${wb.SheetNames.filter(s => SHEET_CONFIG[s]).length} abas.`);
+            } catch (err) {
+                alert('Erro ao ler planilha: ' + err.message);
+            }
+            event.target.value = '';
+        };
+
+        window.reimportFromDefault = function() {
+            document.getElementById('xlsx-file-input').click();
+        };
+
+        // Inicialização: tentar carregar local; sugerir importação se vazio
+        initFirebase();
+        const localData = localStorage.getItem('sei_mae_records');
+        if (localData) {
+            records = JSON.parse(localData).map(normalizeRecord);
+            refreshUI();
+        } else {
+            renderTabs();
+            renderTable();
+            setTimeout(() => {
+                if (!records.length) {
+                    const msg = document.createElement('div');
+                    msg.className = 'fixed bottom-4 right-4 bg-brand text-white text-xs px-4 py-3 rounded-lg shadow-lg z-40 max-w-sm';
+                    msg.innerHTML = '<strong>Primeiro acesso:</strong> Importe a planilha <code class="bg-white/20 px-1 rounded">N. PROCESSO MAE.xlsx</code>';
+                    document.body.appendChild(msg);
+                    setTimeout(() => msg.remove(), 12000);
+                }
+            }, 1000);
+        }
+    </script>
+</body>
+</html>

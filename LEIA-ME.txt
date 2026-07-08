@@ -1,0 +1,39 @@
+SISTEMA: Controle Carol — Monitoramento SEI
+==========================================
+
+COMO USAR
+---------
+1. Abra o arquivo index.html no navegador (Chrome ou Edge recomendado)
+2. Na primeira vez, clique em "Importar Planilha (.xlsx)"
+3. Selecione: N. PROCESSO MAE.xlsx (na mesma pasta ou em U:\FORNECEDORES\)
+4. Pronto! Todas as 9 abas serão carregadas automaticamente
+
+ABAS MAPEADAS
+-------------
+- PCA 2026        → Contratos 2026, processos SEI, aditivos
+- PCA 2025        → Contratos 2025 com valores
+- 2025            → Acompanhamento mensal de pagamentos
+- MEMOS CAP       → Memorandos CAP + Unidades
+- STARTGOV        → Referência StartGov
+- FISCAIS DE CONTRATO → Quem fiscaliza cada serviço
+- SEI 2024        → Processos 2024 com meses
+- PROCESSOS CONECTA → Processos Conecta
+- MEMOS DIVERSOS  → Documentos diversos (férias, acessos, etc.)
+
+FUNCIONALIDADES
+---------------
+- Editar qualquer registro (botão Editar)
+- Adicionar novos registros (botão Novo Registro)
+- Buscar em qualquer campo
+- Filtrar por situação
+- Dashboard com totais
+- Salva automaticamente no navegador
+- Sincroniza na nuvem se Firebase estiver configurado
+
+FIREBASE (OPCIONAL)
+-------------------
+1. Console Firebase → Authentication → Ativar "Anônimo"
+2. Firestore → Criar banco de dados
+3. Regras: permitir leitura/escrita para usuários autenticados
+
+Arquivo principal: index.html
