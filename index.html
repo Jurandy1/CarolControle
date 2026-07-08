@@ -3,7 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Controle Carol — Monitoramento SEI</title>
+    <script>
+        // Globais fora do módulo — compatível com handlers inline e cache antigo
+        window.modalDocumentos = window.modalDocumentos || [];
+        window.modalAnotacoes = window.modalAnotacoes || [];
+        window.APP_VERSION = '1.2.2';
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -150,7 +159,7 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>
                 </button>
                 <div>
-                    <h1 class="text-lg font-bold tracking-tight leading-tight">Controle Carol</h1>
+                    <h1 class="text-lg font-bold tracking-tight leading-tight">Controle Carol <span class="text-[10px] font-normal opacity-70">v1.2.2</span></h1>
                     <p class="text-[10px] opacity-80">Monitoramento de Processos SEI</p>
                 </div>
             </div>
@@ -1479,6 +1488,8 @@
         window.openNewRecordModal = function() {
             document.getElementById('record-id').value = '';
             document.getElementById('modal-title').innerText = `Novo registro — ${activeTab}`;
+            loadModalDocumentos([]);
+            loadModalAnotacoes([]);
             buildFormFields(null);
             showEditView();
         };
@@ -1500,9 +1511,16 @@
 
         window.closeEditModal = window.closeEditPage;
 
-        // Estado dos campos dinâmicos da edição (no window para os handlers HTML)
-        window.modalDocumentos = [];
-        window.modalAnotacoes = [];
+        // Estado dos campos dinâmicos da edição (globais no window)
+        function loadModalDocumentos(docs) {
+            window.modalDocumentos.length = 0;
+            (docs || []).forEach(d => window.modalDocumentos.push({ ...d }));
+        }
+
+        function loadModalAnotacoes(anots) {
+            window.modalAnotacoes.length = 0;
+            (anots || []).forEach(a => window.modalAnotacoes.push({ ...a }));
+        }
 
         function bindEditDynamicLists() {
             const docsEl = document.getElementById('documentos-list');
@@ -1633,9 +1651,9 @@
             document.getElementById('field-procAdicional').value = record?.procAdicional || '';
             document.getElementById('field-numAditivo').value = record?.numAditivo || '';
 
-            // Carregar listas dinâmicas
-            window.modalDocumentos = (record?.documentos || []).map(d => ({ ...d }));
-            window.modalAnotacoes = (record?.anotacoes || []).map(a => ({ ...a }));
+            // Carregar listas dinâmicas (muta o mesmo array global — não reatribui)
+            loadModalDocumentos(record?.documentos);
+            loadModalAnotacoes(record?.anotacoes);
             bindEditDynamicLists();
             renderDocumentosList();
             renderAnotacoesList();
