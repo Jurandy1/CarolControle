@@ -1,0 +1,14 @@
+# Planilha local (dados sensíveis — manter fora do repositório)
+*.xlsx
+*.xls
+
+# Node
+node_modules/
+
+# IDE / local
+.claude/
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.log

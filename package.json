@@ -1,0 +1,14 @@
+{
+  "name": "carol-controle",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "import:firebase": "node scripts/import-to-firebase.mjs",
+    "preview": "powershell -ExecutionPolicy Bypass -File preview-server.ps1"
+  },
+  "dependencies": {
+    "firebase": "^11.6.1",
+    "xlsx": "^0.18.5"
+  }
+}
